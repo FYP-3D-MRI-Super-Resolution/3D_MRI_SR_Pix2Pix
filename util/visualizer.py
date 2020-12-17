@@ -3,9 +3,8 @@ import os
 import sys
 import ntpath
 import time
-from . import util, html
+from . import util, html_handler
 from subprocess import Popen, PIPE
-
 
 if sys.version_info[0] == 2:
     VisdomExceptionBase = Exception
@@ -13,11 +12,68 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
+def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename, affine, original_shape):
+    np_dict = {}
+    # Transform images
+    for label, image in visuals.items():
+        np_image = image.detach().cpu().numpy().reshape(image.shape[2:])
+        np_image = crop_center(np_image, original_shape)
+        np_dict[label] = np_image
+
+    # Add the brain mask to the new image
+    zero_brain_mask = np.where(np_dict['real_A'] == np_dict['real_A'].min())
+    np_dict['fake_B'][zero_brain_mask] = np_dict['fake_B'].min()
+
+    # Apply the median filter to fakeB
+    predicted_smoothed = evaluation.filter_blur(np_dict['fake_B'], opt.smoothing)
+    np_dict['fake_B_smoothed'] = crop_center(predicted_smoothed, original_shape)
+    # np_dict['fake_B_smoothed'][zero_brain_mask] = np_dict['fake_B_smoothed'].min()
+
+    current_truthpath = os.path.join(opt.dataroot, opt.phase, "truth", final_filename)
+    # Check if we have the truth mri
+    if os.path.exists(current_truthpath):
+        np_dict['truth'], _ = nifti_to_np(current_truthpath, sliced, opt.chosen_slice)
+
+    # Name for printing and plotting
+    query_name = final_filename.split(".")[0]
+
+    new_names = {
+        'real_A': query_name + "_" + opt.mapping_source,
+        'real_B': query_name + "_" + opt.mapping_target,
+        'fake_B': query_name + "_" + opt.mapping_target + "_learned",
+        'fake_B_smoothed': query_name + "_" + opt.mapping_target + "_learned_" + opt.smoothing,
+    }
+
+    # If we also have the real B compute some values
+    if 'real_B' in np_dict:
+        excel_eval.evaluate(np_dict, query_name, opt.smoothing)
+
+    # Postprocess all files (except the truth)
+    for label, image in np_dict.items():
+        if "truth" not in label:
+            np_dict[label] = normalize_with_opt(np_dict[label], opt.postprocess, -1)
+
+    base_path = os.path.join(web_dir, query_name)
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+    for label, img in np_dict.items():
+        if "truth" not in label:
+            if sliced:
+                # In case of different slices, change the rotation
+                plot(rotate_flip(img), os.path.join(base_path, new_names[label]))
+            else:
+                mri_viewer.plot_image(np_dict['fake_B'], query_name + " fake " + opt.mapping_target,
+                                      os.path.join(web_dir, "images", query_name + "_fakeB"), show_plots=opt.show_plots)
+                plot_nifti(img,
+                           os.path.join(base_path, (new_names[label] + ".nii.gz")),
+                           affine)
+
+
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256):
     """Save images to the disk.
 
     Parameters:
-        webpage (the HTML class) -- the HTML webpage class that stores these imaegs (see html.py for more details)
+        webpage (the HTML class) -- the HTML webpage class that stores these imaegs (see html_handler.py for more details)
         visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
         image_path (str)         -- the string is used to create image paths
         aspect_ratio (float)     -- the aspect ratio of saved images
@@ -105,7 +161,7 @@ class Visualizer():
         """
         if self.display_id > 0:  # show images in the browser using visdom
             ncols = self.ncols
-            if ncols > 0:        # show all the images in one visdom panel
+            if ncols > 0:  # show all the images in one visdom panel
                 ncols = min(ncols, len(visuals))
                 h, w = next(iter(visuals.values())).shape[:2]
                 table_css = """<style>
@@ -142,7 +198,7 @@ class Visualizer():
                 except VisdomExceptionBase:
                     self.create_visdom_connections()
 
-            else:     # show each image in a separate visdom panel;
+            else:  # show each image in a separate visdom panel;
                 idx = 1
                 try:
                     for label, image in visuals.items():
@@ -162,7 +218,7 @@ class Visualizer():
                 util.save_image(image_numpy, img_path)
 
             # update website
-            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=1)
+            webpage = html_handler.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=1)
             for n in range(epoch, 0, -1):
                 webpage.add_header('epoch [%d]' % n)
                 ims, txts, links = [], [], []

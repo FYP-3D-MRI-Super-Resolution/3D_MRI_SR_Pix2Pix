@@ -344,10 +344,10 @@ class ResnetGenerator(nn.Module):
         else:
             use_bias = norm_layer == nn.InstanceNorm3d
 
-        model = [# TODO: ?? nn.ReflectionPad2d(3),
-                 nn.Conv3d(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
-                 norm_layer(ngf),
-                 nn.ReLU(True)]
+        model = [  # TODO: ?? nn.ReflectionPad2d(3),
+            nn.Conv3d(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
+            norm_layer(ngf),
+            nn.ReLU(True)]
 
         n_downsampling = 2
         for i in range(n_downsampling):  # add downsampling layers

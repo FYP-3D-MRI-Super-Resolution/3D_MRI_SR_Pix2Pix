@@ -12,14 +12,9 @@ You need to implement the following functions:
     -- <__len__>: Return the number of images.
 """
 from data.base_dataset import BaseDataset, get_params_3d, get_params, get_transform, get_transform_torchio
-import torchvision.transforms as transforms
 import os
-import util.util as util
+from util.util as error, warning
 import torchio
-
-
-# from data.image_folder import make_dataset
-# from PIL import Image
 
 
 class NIfTIDataset(BaseDataset):
