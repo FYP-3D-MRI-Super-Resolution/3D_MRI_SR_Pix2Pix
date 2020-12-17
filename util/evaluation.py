@@ -1,6 +1,6 @@
 import time
 import cv2 as cv
-from util.util import error, print_timestamped, normalize_zero_one
+from util.util import error, print_timestamped, normalize_with_opt
 import numpy as np
 
 
@@ -55,9 +55,9 @@ class ExcelEvaluate:
                                                                      tumour_indices=truth_nonzero)
 
         print_timestamped("MSE of values after normalize")
-        r_real = normalize_zero_one(r_real)
-        r_predicted = normalize_zero_one(r_predicted)
-        r_predicted_smoothed = normalize_zero_one(r_predicted_smoothed)
+        r_real = normalize_with_opt(r_real, 0)
+        r_predicted = normalize_with_opt(r_predicted, 0)
+        r_predicted_smoothed = normalize_with_opt(r_predicted_smoothed, 0)
         scaledmse, scaledrelmse, scaledtumour, scaledsmape, scaledsmse = evaluate_result(r_real,
                                                                                          r_predicted,
                                                                                          tumour_indices=truth_nonzero)
@@ -83,6 +83,7 @@ class ExcelEvaluate:
             self.ff.close()
             print_timestamped("Saved in " + str(self.excel_filename))
 
+
 def filter_blur(mapped, mode="median", k_size=3):
     if mode == "average":
         kernel = np.ones((k_size, k_size), np.float32) / (k_size * k_size)
@@ -93,9 +94,6 @@ def filter_blur(mapped, mode="median", k_size=3):
         dst = cv.blur(mapped, ksize=(k_size, k_size))
     elif mode == "gblur":
         dst = cv.GaussianBlur(mapped, k_size=(k_size, k_size), sigmaX=0)
-    elif mode == "nonlocalmeans":
-        dst = cv.fastNlMeansDenoising((mapped * 255).astype(np.uint8), h=10)
-        dst = normalize_zero_one(dst)
     else:
         error("Smoothing mode not recognized.")
 

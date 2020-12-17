@@ -3,7 +3,9 @@ import os
 import sys
 import ntpath
 import time
-from . import util, html_handler
+from .evaluation import filter_blur
+from .mri_viewer import plot_image
+from . import util
 from subprocess import Popen, PIPE
 
 if sys.version_info[0] == 2:
@@ -17,7 +19,7 @@ def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename,
     # Transform images
     for label, image in visuals.items():
         np_image = image.detach().cpu().numpy().reshape(image.shape[2:])
-        np_image = crop_center(np_image, original_shape)
+        np_image = util.crop_center(np_image, original_shape)
         np_dict[label] = np_image
 
     # Add the brain mask to the new image
@@ -25,14 +27,14 @@ def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename,
     np_dict['fake_B'][zero_brain_mask] = np_dict['fake_B'].min()
 
     # Apply the median filter to fakeB
-    predicted_smoothed = evaluation.filter_blur(np_dict['fake_B'], opt.smoothing)
-    np_dict['fake_B_smoothed'] = crop_center(predicted_smoothed, original_shape)
+    predicted_smoothed = filter_blur(np_dict['fake_B'], opt.smoothing)
+    np_dict['fake_B_smoothed'] = util.crop_center(predicted_smoothed, original_shape)
     # np_dict['fake_B_smoothed'][zero_brain_mask] = np_dict['fake_B_smoothed'].min()
 
     current_truthpath = os.path.join(opt.dataroot, opt.phase, "truth", final_filename)
     # Check if we have the truth mri
     if os.path.exists(current_truthpath):
-        np_dict['truth'], _ = nifti_to_np(current_truthpath, sliced, opt.chosen_slice)
+        np_dict['truth'], _ = util.nifti_to_np(current_truthpath, sliced, opt.chosen_slice)
 
     # Name for printing and plotting
     query_name = final_filename.split(".")[0]
@@ -51,7 +53,7 @@ def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename,
     # Postprocess all files (except the truth)
     for label, image in np_dict.items():
         if "truth" not in label:
-            np_dict[label] = normalize_with_opt(np_dict[label], opt.postprocess, -1)
+            np_dict[label] = util.normalize_with_opt(np_dict[label], opt.postprocess)
 
     base_path = os.path.join(web_dir, query_name)
     if not os.path.exists(base_path):
@@ -60,11 +62,11 @@ def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename,
         if "truth" not in label:
             if sliced:
                 # In case of different slices, change the rotation
-                plot(rotate_flip(img), os.path.join(base_path, new_names[label]))
+                plot(util.rotate_flip(img), os.path.join(base_path, new_names[label]))
             else:
-                mri_viewer.plot_image(np_dict['fake_B'], query_name + " fake " + opt.mapping_target,
+                plot_image(np_dict['fake_B'], query_name + " fake " + opt.mapping_target,
                                       os.path.join(web_dir, "images", query_name + "_fakeB"), show_plots=opt.show_plots)
-                plot_nifti(img,
+                util.plot_nifti(img,
                            os.path.join(base_path, (new_names[label] + ".nii.gz")),
                            affine)
 

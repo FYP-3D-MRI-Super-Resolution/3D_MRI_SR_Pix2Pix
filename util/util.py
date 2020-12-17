@@ -6,12 +6,19 @@ from PIL import Image
 import os
 import nibabel as nib
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import datetime
+import time
 
 OKBLUE = '\033[94m'
 OKGREEN = '\033[92m'
 WARNING = '\033[93m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
+
+
+def print_timestamped(string):
+    st = datetime.datetime.fromtimestamp(time.time()).strftime('%d-%m-%Y_%H:%M:%S')
+    print(st + ": " + string)
 
 
 def error(string):
@@ -37,17 +44,53 @@ def nifti_to_np(image_path, sliced, chosen_slice):
     return nifti_data, affine
 
 
-def normalize_with_opt(arr, opt):
+def normalize_with_opt(arr, opt, threshold=-1):
     # print("[", arr.min(), arr.max(), "]", end=" - ")
     if opt == 0:
         MinMaxScaler(copy=False).fit_transform(arr.reshape(-1, 1))
         arr = arr.reshape(arr.shape[0])
     elif opt == 1:
-        trans = StandardScaler(copy=False).fit(arr[arr > 0].reshape(-1, 1))
+        trans = StandardScaler(copy=False).fit(arr[arr > threshold].reshape(-1, 1))
         trans.transform(arr.reshape(-1, 1))
         arr = arr.reshape(arr.shape[0])
     # print("[", arr.min(), arr.max(), "]")
     return arr
+
+
+def plot_nifti(image, filename, affine=None):
+    if affine is None:
+        affine = np.array([[-1., 0., 0., -0.],
+                           [0., -1., 0., 239.],
+                           [0., 0., 1., 0.],
+                           [0., 0., 0., 1.]])
+    new_nifti = nib.Nifti1Image(image, affine=affine)
+    nib.save(new_nifti, filename)
+    print_timestamped("Saved in " + str(filename))
+
+
+def crop_center(img, target_shape):
+    if len(img.shape) == 3:
+        x, y, z = img.shape
+        cropx, cropy, cropz = target_shape
+        startx = x // 2 - cropx // 2
+        starty = y // 2 - cropy // 2
+        startz = z // 2 - cropz // 2
+        return img[starty:starty + cropy, startx:startx + cropx, startz:startz + cropz]
+    elif len(img.shape) == 2:
+        x, y = img.shape
+        cropx, cropy = target_shape
+        startx = x // 2 - cropx // 2
+        starty = y // 2 - cropy // 2
+        return img[starty:starty + cropy, startx:startx + cropx]
+    else:
+        pass  # Not supported
+    return img
+
+
+def rotate_flip(data):
+    data = np.rot90(data, k=3)
+    # data = np.flip(data, axis=1)
+    return data
 
 
 def np_to_pil(data):
