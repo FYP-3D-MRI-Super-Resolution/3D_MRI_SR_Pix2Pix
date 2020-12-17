@@ -8,6 +8,7 @@ import torch.utils.data as data
 from PIL import Image
 import torchvision.transforms as transforms
 from abc import ABC, abstractmethod
+import torchio.transforms as t_transforms
 
 
 class BaseDataset(data.Dataset, ABC):
@@ -78,6 +79,26 @@ def get_params(opt, size):
     return {'crop_pos': (x, y), 'flip': flip}
 
 
+def get_params_3d(opt, size):
+    _, w, h, d = size
+    new_h = h
+    new_w = w
+    new_d = d
+    if opt.preprocess == 'resize_and_crop':
+        new_h = new_w = new_d = opt.load_size
+    elif opt.preprocess == 'scale_width_and_crop':
+        new_w = opt.load_size
+        new_h = opt.load_size * h // w
+
+    x = random.randint(0, np.maximum(0, new_w - opt.crop_size))
+    y = random.randint(0, np.maximum(0, new_h - opt.crop_size))
+    z = random.randint(0, np.maximum(0, new_d - opt.crop_size))
+
+    flip = random.random() > 0.5
+
+    return {'crop_pos': (x, y, z), 'flip': flip}
+
+
 def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True):
     transform_list = []
     if grayscale:
@@ -112,6 +133,30 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     return transforms.Compose(transform_list)
 
 
+def get_transform_torchio(opt, params=None, convert=True):
+    transform_list = []
+
+    if 'resize' in opt.preprocess:
+        transform_list.append(t_transforms.CropOrPad((opt.load_size, opt.load_size, opt.load_size)))
+
+    if 'crop' in opt.preprocess and params is not None:
+        transform_list.append(t_transforms.Lambda(lambda img: __crop3d(img, params['crop_pos'], opt.crop_size)))
+
+    if not opt.no_flip:
+        transform_list.append(t_transforms.RandomFlip())
+
+    if convert:
+        transform_list += [t_transforms.RescaleIntensity(out_min_max=(0, 1))]
+        transform_list += [t_transforms.Lambda(lambda img: __normalize(img, 0.5, 0.5))]
+    return t_transforms.Compose(transform_list)
+
+
+def __normalize(tensor, mean, std):
+    tensor -= mean
+    tensor /= std
+    return tensor
+
+
 def __make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
     h = int(round(oh / base) * base)
@@ -136,8 +181,18 @@ def __crop(img, pos, size):
     ow, oh = img.size
     x1, y1 = pos
     tw = th = size
-    if (ow > tw or oh > th):
+    if ow > tw or oh > th:
         return img.crop((x1, y1, x1 + tw, y1 + th))
+    return img
+
+
+def __crop3d(img, pos, size):
+    _, ow, oh, od = img.shape
+    x1, y1, z1 = pos
+    tw = th = td = size
+    if ow > tw or oh > th or od > td:
+        # return img.crop((x1, y1, z1, x1 + tw, y1 + th, z1 + td))
+        return img[:, x1:x1 + tw, y1:y1 + th, z1:z1 + td]
     return img
 
 
