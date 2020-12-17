@@ -73,10 +73,16 @@ def get_params(opt, size):
 
     x = random.randint(0, np.maximum(0, new_w - opt.crop_size))
     y = random.randint(0, np.maximum(0, new_h - opt.crop_size))
+    padding_x = opt.load_size - w
+    padding_y = opt.load_size - h
+    add_1 = padding_x % 2
+    add_2 = padding_y % 2
+    div_1 = int(padding_x / 2)
+    div_2 = int(padding_y / 2)
 
     flip = random.random() > 0.5
 
-    return {'crop_pos': (x, y), 'flip': flip}
+    return {'crop_pos': (x, y), 'padding_vals': (div_1 + add_1, div_2 + add_2, div_1, div_2), 'flip': flip}
 
 
 def get_params_3d(opt, size):
@@ -106,6 +112,8 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     if 'resize' in opt.preprocess:
         osize = [opt.load_size, opt.load_size]
         transform_list.append(transforms.Resize(osize, method))
+    elif 'pad' in opt.preprocess:
+        transform_list.append(transforms.Pad(params['padding_vals']))
     elif 'scale_width' in opt.preprocess:
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.load_size, opt.crop_size, method)))
 

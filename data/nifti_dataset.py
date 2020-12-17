@@ -13,7 +13,7 @@ You need to implement the following functions:
 """
 from data.base_dataset import BaseDataset, get_params_3d, get_params, get_transform, get_transform_torchio
 import os
-from util.util as error, warning
+from util.util import error, warning, nifti_to_np, np_to_pil, normalize_with_opt
 import torchio
 
 
@@ -77,14 +77,14 @@ class NIfTIDataset(BaseDataset):
         elif opt.model == "pix2pix":
             self.sliced = True
         else:
-            util.warning("The model " + opt.model + " has not been tested and might produce unexpected results.")
+            warning("The model " + opt.model + " has not been tested and might produce unexpected results.")
         self.affine = None
         self.original_shape = None
         self.chosen_slice = opt.chosen_slice
         self.image_pathsA = [os.path.join(rootpathA, f) for f in filesA]
         self.image_pathsB = [os.path.join(rootpathB, f) for f in filesB]
         if len(self.image_pathsA) != len(self.image_pathsB):
-            util.error("The length of the image paths does not correspond, please check if the images are the same.")
+            error("The length of the image paths does not correspond, please check if the images are the same.")
 
         # You can call sorted(make_dataset(self.root, opt.max_dataset_size)) to get all the image paths under the directory self.root
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
@@ -108,18 +108,18 @@ class NIfTIDataset(BaseDataset):
         chosen_imgB = self.image_pathsB[index]
 
         if os.path.basename(chosen_imgA) != os.path.basename(chosen_imgB):
-            util.error("The chosen images are different. Please check the folder for correctness.")
+            error("The chosen images are different. Please check the folder for correctness.")
 
         if self.sliced:
-            A, affine = util.nifti_to_np(chosen_imgA, self.sliced, self.chosen_slice)
-            B, affine = util.nifti_to_np(chosen_imgB, self.sliced, self.chosen_slice)
+            A, affine = nifti_to_np(chosen_imgA, self.sliced, self.chosen_slice)
+            B, affine = nifti_to_np(chosen_imgB, self.sliced, self.chosen_slice)
             self.original_shape = A.shape
-            A = util.normalize_zero_one(A)
-            B = util.normalize_zero_one(B)
-            A = util.np_to_pil(A)
-            B = util.np_to_pil(B)
+            A = normalize_with_opt(A, 0)
+            B = normalize_with_opt(B, 0)
+            A = np_to_pil(A)
+            B = np_to_pil(B)
             transform_params = get_params(self.opt, A.size)
-            c_transform = get_transform(self.opt, transform_params, nifti=True, grayscale=True)
+            c_transform = get_transform(self.opt, transform_params, grayscale=True)
         else:
             A = torchio.Image(chosen_imgA, torchio.INTENSITY)
             B = torchio.Image(chosen_imgB, torchio.INTENSITY)
