@@ -10,3 +10,4 @@ venv/
 # Input/Output folders
 datasets/
 checkpoints/
+results/
