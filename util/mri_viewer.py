@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import nibabel as nib
 from matplotlib.widgets import Slider
-from util.util import normalize_zero_one, print_timestamped
+from util.util import print_timestamped
 import os
 
 
@@ -54,7 +54,6 @@ class MRIViewer(object):
 
 
 def plot_image(np_data, title, filename, show_plots=False):
-    np_data = normalize_zero_one(np_data)
     np_data = np.rot90(np_data, axes=(0, 2))
     np_data = np.flip(np_data, axis=[2])
     fig = plt.figure()

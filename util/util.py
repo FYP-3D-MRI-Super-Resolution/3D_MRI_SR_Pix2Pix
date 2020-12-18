@@ -47,12 +47,10 @@ def nifti_to_np(image_path, sliced, chosen_slice):
 def normalize_with_opt(arr, opt, threshold=-1):
     # print("[", arr.min(), arr.max(), "]", end=" - ")
     if opt == 0:
-        MinMaxScaler(copy=False).fit_transform(arr.reshape(-1, 1))
-        arr = arr.reshape(arr.shape[0])
+        MinMaxScaler(copy=False).fit_transform(arr)
     elif opt == 1:
-        trans = StandardScaler(copy=False).fit(arr[arr > threshold].reshape(-1, 1))
+        trans = StandardScaler(copy=False).fit(arr[arr > threshold])
         trans.transform(arr.reshape(-1, 1))
-        arr = arr.reshape(arr.shape[0])
     # print("[", arr.min(), arr.max(), "]")
     return arr
 
