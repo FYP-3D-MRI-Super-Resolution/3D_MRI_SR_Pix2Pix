@@ -6,3 +6,7 @@ __pycache__/
 # PyCharm
 *.idea
 venv/
+
+# Input/Output folders
+datasets/
+checkpoints/
