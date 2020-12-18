@@ -7,7 +7,9 @@ import os
 import nibabel as nib
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import datetime
+import matplotlib.pyplot as plt
 import time
+import cv2 as cv
 
 OKBLUE = '\033[94m'
 OKGREEN = '\033[92m'
@@ -32,6 +34,60 @@ def info(string):
 
 def warning(string):
     print(f"{WARNING}" + string + f"{ENDC}")
+
+
+def postprocess_images(visuals, opt, filename, original_shape):
+    np_dict = {}
+    # Transform images
+    for label, image in visuals.items():
+        np_image = image.detach().cpu().numpy().reshape(image.shape[2:])
+        np_image = crop_center(np_image, original_shape)
+        np_dict[label] = np_image
+
+    # Add the brain mask to the new image
+    zero_brain_mask = np.where(np_dict['real_A'] == np_dict['real_A'].min())
+    np_dict['fake_B'][zero_brain_mask] = np_dict['fake_B'].min()
+
+    # Apply the median filter to fakeB
+    predicted_smoothed = filter_blur(np_dict['fake_B'], opt.smoothing)
+    np_dict['fake_B_smoothed'] = crop_center(predicted_smoothed, original_shape)
+
+    current_truthpath = os.path.join(opt.dataroot, opt.phase, "truth", filename)
+    # Check if we have the truth mri
+    if os.path.exists(current_truthpath):
+        np_dict['truth'], _ = nifti_to_np(current_truthpath, len(np_dict['real_A'].shape) == 2, opt.chosen_slice)
+
+    return np_dict
+
+
+def plot_2d(image, filename):
+    fig = plt.figure(figsize=(5, 5), dpi=300)
+    ax = fig.add_subplot(1, 1, 1)
+
+    ax.set_xlim(right=image.shape[0])
+    ax.set_ylim(top=image.shape[1])
+    ax.set_yticks([])
+    ax.set_xticks([])
+
+    ax.imshow(image, vmin=np.min(image) + 0.1e-10, vmax=np.max(image), cmap="gray")
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close(fig)
+
+
+def filter_blur(mapped, mode="median", k_size=3):
+    if mode == "average":
+        kernel = np.ones((k_size, k_size), np.float32) / (k_size * k_size)
+        dst = cv.filter2D(mapped, -1, kernel)
+    elif mode == "median":
+        dst = cv.medianBlur(np.float32(mapped), ksize=k_size)
+    elif mode == "blur":
+        dst = cv.blur(mapped, ksize=(k_size, k_size))
+    elif mode == "gblur":
+        dst = cv.GaussianBlur(mapped, k_size=(k_size, k_size), sigmaX=0)
+    else:
+        error("Smoothing mode not recognized.")
+
+    return dst
 
 
 def nifti_to_np(image_path, sliced, chosen_slice):

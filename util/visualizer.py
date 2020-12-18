@@ -3,9 +3,8 @@ import os
 import sys
 import ntpath
 import time
-from .evaluation import filter_blur
-from .mri_viewer import plot_image
-from . import util
+from .mri_viewer import plot_3d
+from . import util, html_handler
 from subprocess import Popen, PIPE
 
 if sys.version_info[0] == 2:
@@ -14,41 +13,13 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
-def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename, affine, original_shape):
-    np_dict = {}
-    # Transform images
-    for label, image in visuals.items():
-        np_image = image.detach().cpu().numpy().reshape(image.shape[2:])
-        np_image = util.crop_center(np_image, original_shape)
-        np_dict[label] = np_image
-
-    # Add the brain mask to the new image
-    zero_brain_mask = np.where(np_dict['real_A'] == np_dict['real_A'].min())
-    np_dict['fake_B'][zero_brain_mask] = np_dict['fake_B'].min()
-
-    # Apply the median filter to fakeB
-    predicted_smoothed = filter_blur(np_dict['fake_B'], opt.smoothing)
-    np_dict['fake_B_smoothed'] = util.crop_center(predicted_smoothed, original_shape)
-    # np_dict['fake_B_smoothed'][zero_brain_mask] = np_dict['fake_B_smoothed'].min()
-
-    current_truthpath = os.path.join(opt.dataroot, opt.phase, "truth", final_filename)
-    # Check if we have the truth mri
-    if os.path.exists(current_truthpath):
-        np_dict['truth'], _ = util.nifti_to_np(current_truthpath, sliced, opt.chosen_slice)
-
-    # Name for printing and plotting
-    query_name = final_filename.split(".")[0]
-
+def save_nifti_images(np_dict, query_name, opt, web_dir, affine):
     new_names = {
         'real_A': query_name + "_" + opt.mapping_source,
         'real_B': query_name + "_" + opt.mapping_target,
         'fake_B': query_name + "_" + opt.mapping_target + "_learned",
         'fake_B_smoothed': query_name + "_" + opt.mapping_target + "_learned_" + opt.smoothing,
     }
-
-    # If we also have the real B compute some values
-    if 'real_B' in np_dict:
-        excel_eval.evaluate(np_dict, query_name, opt.smoothing)
 
     # Postprocess all files (except the truth)
     for label, image in np_dict.items():
@@ -60,15 +31,42 @@ def save_nifti_images(visuals, opt, excel_eval, sliced, web_dir, final_filename,
         os.makedirs(base_path)
     for label, img in np_dict.items():
         if "truth" not in label:
-            if sliced:
-                # In case of different slices, change the rotation
-                plot(util.rotate_flip(img), os.path.join(base_path, new_names[label]))
-            else:
-                plot_image(np_dict['fake_B'], query_name + " fake " + opt.mapping_target,
-                                      os.path.join(web_dir, "images", query_name + "_fakeB"), show_plots=opt.show_plots)
-                util.plot_nifti(img,
-                           os.path.join(base_path, (new_names[label] + ".nii.gz")),
-                           affine)
+            util.plot_nifti(img,
+                            os.path.join(base_path, (new_names[label] + ".nii.gz")),
+                            affine)
+
+
+def save_web_nifti(webpage, visuals, image_path, show=False, width=256):
+    """Save images to the disk.
+
+    Parameters:
+        webpage (the HTML class) -- the HTML webpage class that stores these imaegs (see html_handler.py for more details)
+        visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
+        image_path (str)         -- the string is used to create image paths
+        aspect_ratio (float)     -- the aspect ratio of saved images
+        width (int)              -- the images will be resized to width x width
+
+    This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
+    """
+    image_dir = webpage.get_image_dir()
+    short_path = ntpath.basename(image_path[0])
+    name = short_path.split(".")[0]
+
+    webpage.add_header(name)
+    ims, txts, links = [], [], []
+
+    sliced = len(visuals['real_A'].shape) == 2
+    for label, img in visuals.items():
+        image_name = '%s_%s.png' % (name, label)
+        save_path = os.path.join(image_dir, image_name)
+        if sliced:
+            util.plot_2d(util.rotate_flip(img), save_path)
+        else:
+            plot_3d(img, name + "_" + label, save_path, show)
+        ims.append(image_name)
+        txts.append(label)
+        links.append(image_name)
+    webpage.add_images(ims, txts, links, width=width)
 
 
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256):

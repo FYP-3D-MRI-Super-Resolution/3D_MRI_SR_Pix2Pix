@@ -1,7 +1,7 @@
 import time
-import cv2 as cv
 from util.util import error, print_timestamped, normalize_with_opt
 import numpy as np
+import os
 
 
 class ExcelEvaluate:
@@ -9,6 +9,8 @@ class ExcelEvaluate:
         self.excel_filename = None
         self.excel = excel
         if self.excel:
+            if not os.path.exists(os.path.dirname(filepath)):
+                os.makedirs(os.path.dirname(filepath))
             self.excel_filename = filepath
             self.ff = open(self.excel_filename, "w")
             init_rows = [
@@ -18,12 +20,10 @@ class ExcelEvaluate:
                 "relMSE",
                 "TumourMSE",
                 "sMAPE",
-                "SMSE",
                 "scaledMSE",
                 "scaledrelMSE",
                 "scaledTumourMSE",
                 "scaledsMAPE",
-                "scaledSMSE",
             ]
             for i, n in enumerate(init_rows):
                 self.ff.write(n)
@@ -50,54 +50,38 @@ class ExcelEvaluate:
             truth_nonzero = np.nonzero(r_truth_mri)[0]
             if len(truth_nonzero) == 0:
                 truth_nonzero = None
-        mse, relmse, tumour, smape, smse = evaluate_result(r_real, r_predicted, tumour_indices=truth_nonzero)
-        s_mse, s_relmse, s_tumour, s_smape, s_smse = evaluate_result(r_real, r_predicted_smoothed,
-                                                                     tumour_indices=truth_nonzero)
+        mse, relmse, tumour, smape = evaluate_result(r_real, r_predicted, tumour_indices=truth_nonzero)
+        s_mse, s_relmse, s_tumour, s_smape = evaluate_result(r_real, r_predicted_smoothed,
+                                                             tumour_indices=truth_nonzero)
 
         print_timestamped("MSE of values after normalize")
-        r_real = normalize_with_opt(r_real, 0)
-        r_predicted = normalize_with_opt(r_predicted, 0)
-        r_predicted_smoothed = normalize_with_opt(r_predicted_smoothed, 0)
-        scaledmse, scaledrelmse, scaledtumour, scaledsmape, scaledsmse = evaluate_result(r_real,
-                                                                                         r_predicted,
-                                                                                         tumour_indices=truth_nonzero)
-        scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape, scaleds_smse = evaluate_result(r_real,
-                                                                                                   r_predicted_smoothed,
-                                                                                                   tumour_indices=truth_nonzero)
+        r_real = normalize_with_opt(mri_dict['real_B'], 0).flatten()
+        r_predicted = normalize_with_opt(mri_dict['fake_B'], 0).flatten()
+        r_predicted_smoothed = normalize_with_opt(mri_dict['fake_B_smoothed'], 0).flatten()
+        scaledmse, scaledrelmse, scaledtumour, scaledsmape = evaluate_result(r_real,
+                                                                             r_predicted,
+                                                                             tumour_indices=truth_nonzero)
+        scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape = evaluate_result(r_real,
+                                                                                     r_predicted_smoothed,
+                                                                                     tumour_indices=truth_nonzero)
         if smoothing == "median":
             smoothing = 0
         elif smoothing == "average":
             smoothing = 1
         if self.excel:
             self.print_to_excel([query_name, -1,
-                                 mse, relmse, tumour, smape, smse,
-                                 scaledmse, scaledrelmse, scaledtumour, scaledsmape, scaledsmse,
+                                 mse, relmse, tumour, smape,
+                                 scaledmse, scaledrelmse, scaledtumour, scaledsmape,
                                  ])
             self.print_to_excel([query_name, smoothing,
-                                 s_mse, s_relmse, s_tumour, s_smape, s_smse,
-                                 scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape, scaleds_smse
+                                 s_mse, s_relmse, s_tumour, s_smape,
+                                 scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape
                                  ])
 
     def close(self):
         if self.excel:
             self.ff.close()
             print_timestamped("Saved in " + str(self.excel_filename))
-
-
-def filter_blur(mapped, mode="median", k_size=3):
-    if mode == "average":
-        kernel = np.ones((k_size, k_size), np.float32) / (k_size * k_size)
-        dst = cv.filter2D(mapped, -1, kernel)
-    elif mode == "median":
-        dst = cv.medianBlur(np.float32(mapped), ksize=k_size)
-    elif mode == "blur":
-        dst = cv.blur(mapped, ksize=(k_size, k_size))
-    elif mode == "gblur":
-        dst = cv.GaussianBlur(mapped, k_size=(k_size, k_size), sigmaX=0)
-    else:
-        error("Smoothing mode not recognized.")
-
-    return dst
 
 
 def common_nonzero(transformed_mris):
@@ -113,7 +97,6 @@ def evaluate_result(seq, learned_seq, tumour_indices=None, round_fact=6, multipl
     if seq.shape != learned_seq.shape:
         error("The shape of the target and learned sequencing are not the same.")
 
-    smse = None
     tumour = None
 
     common = common_nonzero([seq, learned_seq])
@@ -139,4 +122,4 @@ def evaluate_result(seq, learned_seq, tumour_indices=None, round_fact=6, multipl
 
     end = round(time.time() - init, 3)
     print_timestamped("Time spent computing the error for the current mapping: " + str(end) + "s.")
-    return mse, relmse, tumour, smape, smse
+    return mse, relmse, tumour, smape

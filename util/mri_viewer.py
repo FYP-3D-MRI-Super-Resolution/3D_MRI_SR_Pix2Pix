@@ -53,7 +53,7 @@ class MRIViewer(object):
         self.im.axes.figure.canvas.draw()
 
 
-def plot_image(np_data, title, filename, show_plots=False):
+def plot_3d(np_data, title, filename, show_plots=False):
     np_data = np.rot90(np_data, axes=(0, 2))
     np_data = np.flip(np_data, axis=[2])
     fig = plt.figure()
