@@ -1,6 +1,6 @@
 import torch
 from .base_model import BaseModel
-from . import networks, networks3d
+from . import networks
 
 
 class Pix2PixModel(BaseModel):
@@ -74,11 +74,6 @@ class Pix2PixModel(BaseModel):
 
         if self.isTrain:
             # define loss functions
-            # TODO: Remove
-            # if self.nifti:
-            #     self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
-            #     self.criterionL1 = torch.nn.L1Loss(reduction='sum')
-            # else:
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
@@ -111,14 +106,14 @@ class Pix2PixModel(BaseModel):
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
         # Fake; stop backprop to the generator by detaching fake_B
-        fake_AB = torch.cat((self.real_A, self.fake_B),
-                            1)  # we use conditional GANs; we need to feed both input and output to the discriminator
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)  # we use conditional GANs;
+        # we need to feed both input and output to the discriminator
         pred_fake = self.netD(fake_AB.detach())
-        self.loss_D_fake = self.criterionGAN(pred_fake * self.mask, False)
+        self.loss_D_fake = self.criterionGAN(pred_fake, False)
         # Real
         real_AB = torch.cat((self.real_A, self.real_B), 1)
         pred_real = self.netD(real_AB)
-        self.loss_D_real = self.criterionGAN(pred_real * self.mask, True)
+        self.loss_D_real = self.criterionGAN(pred_real, True)
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
@@ -128,13 +123,11 @@ class Pix2PixModel(BaseModel):
         # First, G(A) should fake the discriminator
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
-        self.loss_G_GAN = self.criterionGAN(pred_fake * self.mask, True)
+        self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
+        # Compute the L1 loss only on the masked values
         self.loss_G_L1 = self.criterionL1(self.fake_B * self.mask, self.real_B * self.mask) * self.opt.lambda_L1
         # combine loss and calculate gradients
-        # TODO: Remove
-        # if self.nifti:
-        #     self.loss_G_L1 /= torch.sum(self.real_B != self.real_B.min())
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
 
