@@ -259,8 +259,6 @@ class GANLoss(nn.Module):
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
         self.gan_mode = gan_mode
-        # TODO: Done only for pix2pix, this method needs to be postprocessed
-        # reduction_type = 'sum' if nifti else 'mean'
         if gan_mode == 'lsgan':
             self.loss = nn.MSELoss()
         elif gan_mode == 'vanilla':
