@@ -34,6 +34,7 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
+            parser.add_argument('--lambda_L2_T', type=float, default=100.0, help='weight for L2 truth loss')
 
         return parser
 
@@ -49,7 +50,7 @@ class Pix2PixModel(BaseModel):
         self.real_B = None
         # specify the training losses you want to print out.
         # The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
+        self.loss_names = ['G_GAN', 'G_L1', 'G_L2_T', 'D_real', 'D_fake']
         # specify the images you want to save/display.
         # The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'fake_B', 'real_B']
@@ -76,8 +77,7 @@ class Pix2PixModel(BaseModel):
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
-            # TODO: Shall we add the MSE loss for the tumor computation?
-            # self.criterionL2 = torch.nn.MSELoss()
+            self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -96,9 +96,13 @@ class Pix2PixModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         if self.nifti:
-            self.mask = (self.real_B != self.real_B.min()).to(torch.int32)
+            self.mask = input['mask']
         else:
             self.mask = torch.ones(self.real_B.shape, dtype=torch.int32)
+        if self.nifti and input['truth'] is not None:
+            self.truth = input['truth']
+        else:
+            self.truth = torch.ones(self.real_B.shape, dtype=torch.int32)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -129,8 +133,10 @@ class Pix2PixModel(BaseModel):
         # Second, G(A) = B
         # Compute the L1 loss only on the masked values
         self.loss_G_L1 = self.criterionL1(self.fake_B * self.mask, self.real_B * self.mask) * self.opt.lambda_L1
+        # Compute the L2 loss on the tumor area
+        self.loss_G_L2_T = self.criterionL2(self.fake_B * self.truth, self.real_B * self.truth) * self.opt.lambda_L2_T
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_L2_T
         self.loss_G.backward()
 
     def optimize_parameters(self):

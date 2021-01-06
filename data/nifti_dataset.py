@@ -15,6 +15,7 @@ from data.base_dataset import BaseDataset, get_params_3d, get_params, get_transf
 import os
 from util.util import error, warning, nifti_to_np, np_to_pil, normalize_with_opt
 import torchio
+import torch
 
 
 class NIfTIDataset(BaseDataset):
@@ -45,6 +46,8 @@ class NIfTIDataset(BaseDataset):
                             help='the kind of smoothing to apply to the image after mapping')
         parser.add_argument('--show_plots', action='store_true',
                             help='choose to show the final plots for the fake images while testing')
+        parser.add_argument('--truth_folder', type=str, default="truth",
+                            help='folder where the truth files are saved (if exists).')
         parser.add_argument('--postprocess', type=int, default=-1, const=-1, nargs='?',
                             choices=[-1, 0, 1, 2],
                             help='the kind of post-processing to apply to the images. -1 means no postprocessing, '
@@ -70,6 +73,7 @@ class NIfTIDataset(BaseDataset):
         # get the image paths of your dataset;
         rootpathA = os.path.join(opt.dataroot, opt.phase, opt.mapping_source)
         rootpathB = os.path.join(opt.dataroot, opt.phase, opt.mapping_target)
+        self.truthpath = os.path.join(opt.dataroot, opt.phase, opt.truth_folder)
         filesA = sorted(os.listdir(rootpathA))
         filesB = sorted(os.listdir(rootpathB))
         if opt.model == "pix2pix3d":
@@ -110,6 +114,9 @@ class NIfTIDataset(BaseDataset):
         if os.path.basename(chosen_imgA) != os.path.basename(chosen_imgB):
             error("The chosen images are different. Please check the folder for correctness.")
 
+        truth = None
+        current_truthpath = os.path.join(self.truthpath, os.path.basename(chosen_imgA))
+
         if self.sliced:
             A, affine = nifti_to_np(chosen_imgA, self.sliced, self.chosen_slice)
             B, affine = nifti_to_np(chosen_imgB, self.sliced, self.chosen_slice)
@@ -118,11 +125,17 @@ class NIfTIDataset(BaseDataset):
             B = normalize_with_opt(B, 0)
             A = np_to_pil(A)
             B = np_to_pil(B)
+            if os.path.exists(current_truthpath):
+                truth, _ = nifti_to_np(current_truthpath, self.sliced, self.chosen_slice)
+                truth = normalize_with_opt(truth, 0)
+                truth = np_to_pil(truth)
             transform_params = get_params(self.opt, A.size)
             c_transform = get_transform(self.opt, transform_params, grayscale=True)
         else:
             A = torchio.Image(chosen_imgA, torchio.INTENSITY)
             B = torchio.Image(chosen_imgB, torchio.INTENSITY)
+            if os.path.exists(current_truthpath):
+                truth = torchio.Image(current_truthpath, torchio.INTENSITY)
             self.original_shape = A.shape[1:]
             affine = A.affine
             transform_params = get_params_3d(self.opt, A.shape)
@@ -132,7 +145,14 @@ class NIfTIDataset(BaseDataset):
 
         A_torch = c_transform(A)
         B_torch = c_transform(B)
+
+        if truth is not None:
+            truth_torch = c_transform(truth)
+            truth = (truth_torch != truth_torch.min()).to(torch.int32)
+
+        B_mask = (B_torch != B_torch.min()).to(torch.int32)
         return {'A': A_torch.data, 'B': B_torch.data,
+                'mask': B_mask, 'truth': truth,
                 'A_paths': chosen_imgA, 'B_paths': chosen_imgB}
 
     def __len__(self):
