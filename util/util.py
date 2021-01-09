@@ -23,6 +23,10 @@ def print_timestamped(string):
     print(st + ": " + string)
 
 
+def zero_division(n, d):
+    return n / d if d else n * 0
+
+
 def error(string):
     print(f"{FAIL}" + string + f"{ENDC}")
     exit(-1)
@@ -36,7 +40,7 @@ def warning(string):
     print(f"{WARNING}" + string + f"{ENDC}")
 
 
-def postprocess_images(visuals, opt, filename, original_shape):
+def postprocess_images(visuals, opt, original_shape):
     np_dict = {}
     # Transform images
     for label, image in visuals.items():
@@ -51,11 +55,6 @@ def postprocess_images(visuals, opt, filename, original_shape):
     # Apply the median filter to fakeB
     predicted_smoothed = filter_blur(np_dict['fake_B'], opt.smoothing)
     np_dict['fake_B_smoothed'] = crop_center(predicted_smoothed, original_shape)
-
-    current_truthpath = os.path.join(opt.dataroot, opt.phase, "truth", filename)
-    # Check if we have the truth mri
-    if os.path.exists(current_truthpath):
-        np_dict['truth'], _ = nifti_to_np(current_truthpath, len(np_dict['real_A'].shape) == 2, opt.chosen_slice)
 
     return np_dict
 

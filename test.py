@@ -84,7 +84,7 @@ if __name__ == '__main__':
         if nifti:
             query_name = os.path.basename(img_path[0])
             # Postprocess the results to numpy arrays
-            np_post = postprocess_images(visuals, opt, query_name, dataset.dataset.original_shape)
+            np_post = postprocess_images(visuals, opt, dataset.dataset.original_shape)
             query_name_noext = query_name.split(".")[0]
             if 'real_B' in np_post:
                 # Evaluate the results
