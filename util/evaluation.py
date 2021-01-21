@@ -18,12 +18,12 @@ class ExcelEvaluate:
                 "filter",
                 "MSE",
                 "relMSE",
-                "TumourMSE",
                 "sMAPE",
-                "scaledMSE",
-                "scaledrelMSE",
-                "scaledTumourMSE",
-                "scaledsMAPE",
+                "TumourMSE",
+                "scaled_MSE",
+                "scaled_relMSE",
+                "scaled_sMAPE",
+                "scaled_TumourMSE"
             ]
             for i, n in enumerate(init_rows):
                 self.ff.write(n)
@@ -41,41 +41,32 @@ class ExcelEvaluate:
                 self.ff.write("\n")
 
     def evaluate(self, mri_dict, query_name, smoothing="median"):
-        r_real = mri_dict['real_B'].flatten()
-        r_predicted = mri_dict['fake_B'].flatten()
-        r_predicted_smoothed = mri_dict['fake_B_smoothed'].flatten()
-        truth_nonzero = None
-        if 'truth' in mri_dict:
-            r_truth_mri = mri_dict['truth'].flatten()
-            truth_nonzero = np.nonzero(r_truth_mri)[0]
-            if len(truth_nonzero) == 0:
-                truth_nonzero = None
-        mse, relmse, tumour, smape = evaluate_result(r_real, r_predicted, tumour_indices=truth_nonzero)
-        s_mse, s_relmse, s_tumour, s_smape = evaluate_result(r_real, r_predicted_smoothed,
-                                                             tumour_indices=truth_nonzero)
-
-        print_timestamped("MSE of values after normalize")
-        r_real = normalize_with_opt(mri_dict['real_B'], 0).flatten()
-        r_predicted = normalize_with_opt(mri_dict['fake_B'], 0).flatten()
-        r_predicted_smoothed = normalize_with_opt(mri_dict['fake_B_smoothed'], 0).flatten()
-        scaledmse, scaledrelmse, scaledtumour, scaledsmape = evaluate_result(r_real,
-                                                                             r_predicted,
-                                                                             tumour_indices=truth_nonzero)
-        scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape = evaluate_result(r_real,
-                                                                                     r_predicted_smoothed,
-                                                                                     tumour_indices=truth_nonzero)
-        if smoothing == "median":
-            smoothing = 0
-        elif smoothing == "average":
-            smoothing = 1
+        mse, relmse, smape, tumour = evaluate_result(mri_dict['real_B'],
+                                                     mri_dict['fake_B'],
+                                                     tumor_mask=mri_dict['truth'])
+        smooth_mse, smooth_relmse, smooth_smape, smooth_tumour = evaluate_result(mri_dict['real_B'],
+                                                                                 mri_dict['fake_B_smoothed'],
+                                                                                 tumor_mask=mri_dict['truth'])
+        print_timestamped("Computing MSE on the scaled data")
+        # Scale data in 0,1 and compute everything again
+        s_real = normalize_with_opt(mri_dict['real_B'], 0)
+        s_predicted = normalize_with_opt(mri_dict['fake_B'], 0)
+        s_predicted_smoothed = normalize_with_opt(mri_dict['fake_B_smoothed'], 0)
+        scaled_mse, scaled_relmse, scaled_smape, scaled_tumour = evaluate_result(s_real,
+                                                                                 s_predicted,
+                                                                                 tumor_mask=mri_dict['truth'])
+        s_smooth_mse, s_smooth_relmse, s_smooth_smape, s_smooth_tumour = evaluate_result(s_real,
+                                                                                         s_predicted_smoothed,
+                                                                                         tumor_mask=mri_dict['truth'])
+        smoothing = 0 if smoothing == "median" else 1
         if self.excel:
             self.print_to_excel([query_name, -1,
-                                 mse, relmse, tumour, smape,
-                                 scaledmse, scaledrelmse, scaledtumour, scaledsmape,
+                                 mse, relmse, smape, tumour,
+                                 scaled_mse, scaled_relmse, scaled_smape, scaled_tumour,
                                  ])
             self.print_to_excel([query_name, smoothing,
-                                 s_mse, s_relmse, s_tumour, s_smape,
-                                 scaleds_mse, scaleds_relmse, scaleds_tumour, scaleds_smape
+                                 smooth_mse, smooth_relmse, smooth_tumour, smooth_smape,
+                                 s_smooth_mse, s_smooth_relmse, s_smooth_tumour, s_smooth_smape,
                                  ])
 
     def close(self):
@@ -84,27 +75,22 @@ class ExcelEvaluate:
             print_timestamped("Saved in " + str(self.excel_filename))
 
 
-def common_nonzero(transformed_mris):
-    common_nonzero_set = set()
-    for i in range(len(transformed_mris)):
-        common_nonzero_set = common_nonzero_set.union(set(np.nonzero(transformed_mris[i])[0]))
-
-    return np.array(list(common_nonzero_set))
-
-
-def evaluate_result(seq, learned_seq, tumour_indices=None, round_fact=6, multiplier=1):
-    init = time.time()
+def evaluate_result(seq, learned_seq, tumor_mask=None, round_fact=6, multiplier=1):
     if seq.shape != learned_seq.shape:
         error("The shape of the target and learned sequencing are not the same.")
 
     tumour = None
+    mask = (seq != seq.min()) * (learned_seq != learned_seq.min())
+    ground_truth = seq[mask]
+    prediction = learned_seq[mask]
 
-    common = common_nonzero([seq, learned_seq])
-
-    mse = np.mean(np.square(seq[common] - learned_seq[common]))
-    relmse = mse / np.mean(np.square(seq[common]))
-    smape = np.sum(np.abs(seq[common] - learned_seq[common])) / \
-            np.sum(np.abs(learned_seq[common]) + np.abs(seq[common]))
+    # MSE: avg((A-B)^2)
+    mse = (np.square(np.subtract(ground_truth, prediction))).mean()
+    # RelMSE
+    relmse = mse / np.square(ground_truth).mean()
+    # SMAPE = sum |F - A| / sum |A| + |F|
+    smape = (100 / np.size(ground_truth)) * \
+            np.sum(np.abs(ground_truth - prediction) * 2 / (np.abs(prediction) + np.abs(ground_truth)))
 
     mse = round(mse * multiplier, round_fact)
     print("The mean squared error is " + str(mse) + ".")
@@ -115,11 +101,9 @@ def evaluate_result(seq, learned_seq, tumour_indices=None, round_fact=6, multipl
     smape = round(smape, round_fact)
     print("The symmetric mean absolute percentage error is " + str(smape) + ".")
 
-    if tumour_indices is not None:
-        tumour = np.mean(np.square(seq[tumour_indices] - learned_seq[tumour_indices]))
+    if tumor_mask is not None:
+        tumour = (np.square(np.subtract(seq[tumor_mask], learned_seq[tumor_mask]))).mean()
         tumour = round(tumour * multiplier, round_fact)
         print("The mean squared error of the tumor is " + str(tumour) + ".")
 
-    end = round(time.time() - init, 3)
-    print_timestamped("Time spent computing the error for the current mapping: " + str(end) + "s.")
-    return mse, relmse, tumour, smape
+    return mse, relmse, smape, tumour

@@ -105,7 +105,7 @@ def normalize_with_opt(arr, opt, threshold=-1):
         MinMaxScaler(copy=False).fit_transform(arr)
     elif opt == 1:
         trans = StandardScaler(copy=False).fit(arr[arr > threshold])
-        trans.transform(arr.reshape(-1, 1))
+        trans.transform(arr)
     # print("[", arr.min(), arr.max(), "]")
     return arr
 
