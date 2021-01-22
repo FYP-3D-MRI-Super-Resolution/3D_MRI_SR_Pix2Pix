@@ -17,7 +17,6 @@ from util.util import error, warning, nifti_to_np, np_to_pil, normalize_with_opt
 import torchio
 import torch
 
-
 class NIfTIDataset(BaseDataset):
     """A template dataset class for you to implement custom datasets."""
 
@@ -127,7 +126,7 @@ class NIfTIDataset(BaseDataset):
             B = np_to_pil(B)
             if os.path.exists(current_truthpath):
                 truth, _ = nifti_to_np(current_truthpath, self.sliced, self.chosen_slice)
-                truth = normalize_with_opt(truth, 0)
+                truth = (truth != truth.min())
                 truth = np_to_pil(truth)
             transform_params = get_params(self.opt, A.size)
             c_transform = get_transform(self.opt, transform_params, grayscale=True)
@@ -135,7 +134,8 @@ class NIfTIDataset(BaseDataset):
             A = torchio.Image(chosen_imgA, torchio.INTENSITY)
             B = torchio.Image(chosen_imgB, torchio.INTENSITY)
             if os.path.exists(current_truthpath):
-                truth = torchio.Image(current_truthpath, torchio.INTENSITY)
+                truth = torchio.LabelMap(current_truthpath)
+                truth.data[truth.data > 1] = 1
             self.original_shape = A.shape[1:]
             affine = A.affine
             transform_params = get_params_3d(self.opt, A.shape)
@@ -145,14 +145,13 @@ class NIfTIDataset(BaseDataset):
 
         A_torch = c_transform(A)
         B_torch = c_transform(B)
-
+        truth_torch = None
         if truth is not None:
             truth_torch = c_transform(truth)
-            truth = (truth_torch != truth_torch.min()).to(torch.int32)
 
         B_mask = (B_torch != B_torch.min()).to(torch.int32)
         return {'A': A_torch.data, 'B': B_torch.data,
-                'mask': B_mask, 'truth': truth,
+                'mask': B_mask, 'truth': truth_torch,
                 'A_paths': chosen_imgA, 'B_paths': chosen_imgB}
 
     def __len__(self):

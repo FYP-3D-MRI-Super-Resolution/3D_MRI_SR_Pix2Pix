@@ -5,7 +5,6 @@ import numpy as np
 from PIL import Image
 import os
 import nibabel as nib
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import datetime
 import matplotlib.pyplot as plt
 import time
@@ -62,7 +61,8 @@ def postprocess_images(visuals, opt, original_shape):
 def plot_2d(image, filename):
     fig = plt.figure(figsize=(5, 5), dpi=300)
     ax = fig.add_subplot(1, 1, 1)
-
+    image = np.rot90(image, k=-1)
+    image = np.flip(image, axis=1)
     ax.set_xlim(right=image.shape[0])
     ax.set_ylim(top=image.shape[1])
     ax.set_yticks([])
@@ -99,13 +99,12 @@ def nifti_to_np(image_path, sliced, chosen_slice):
     return nifti_data, affine
 
 
-def normalize_with_opt(arr, opt, threshold=-1):
-    # print("[", arr.min(), arr.max(), "]", end=" - ")
+def normalize_with_opt(arr, opt):
+    # print(opt, "[", arr.min(), arr.max(), "]", end=" - ")
     if opt == 0:
-        MinMaxScaler(copy=False).fit_transform(arr)
+        return (arr - arr.min()) / (arr.max() - arr.min())
     elif opt == 1:
-        trans = StandardScaler(copy=False).fit(arr[arr > threshold])
-        trans.transform(arr)
+        return arr - np.mean(arr[arr > 0]) / np.std(arr[arr > 0])
     # print("[", arr.min(), arr.max(), "]")
     return arr
 
