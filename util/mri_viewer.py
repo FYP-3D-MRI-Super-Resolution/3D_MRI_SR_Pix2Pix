@@ -67,7 +67,7 @@ def plot_3d(np_data, title, filename, show_plots=False):
     ax3 = fig.add_subplot(1, 3, 3)
     fig3 = MRIViewer(ax3, np_data, 2, 0.673)
     plt.savefig(filename, bbox_inches='tight')
-    print_timestamped("Saved in " + str(filename))
+    # print_timestamped("Saved in " + str(filename))
     if show_plots:
         plt.show()
     plt.close(fig)

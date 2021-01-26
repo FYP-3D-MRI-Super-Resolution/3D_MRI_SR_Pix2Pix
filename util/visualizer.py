@@ -217,8 +217,6 @@ class Visualizer():
             self.saved = True
             # save images to the disk
             for label, image in visuals.items():
-                if "truth" in label:
-                    continue
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
                 if len(image.shape) > 4:
                     image_numpy = image.detach().cpu().numpy().reshape(image.shape[2:])
