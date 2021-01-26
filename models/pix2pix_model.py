@@ -104,11 +104,13 @@ class Pix2PixModel(BaseModel):
         if self.nifti:
             self.mask = input['mask']
         else:
-            self.mask = torch.ones(self.real_B.shape, dtype=torch.int32)
+            # If we are not using nifti the mask is just the image itself
+            self.mask = torch.ones(self.real_B.shape, dtype=torch.bool)
         if self.nifti and input['truth'] is not None:
             self.truth = input['truth']
         else:
-            self.truth = torch.zeros(self.real_B.shape, dtype=torch.int32)
+            # If we don't have the truth, nothing should matter
+            self.truth = torch.zeros(self.real_B.shape, dtype=torch.bool)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):

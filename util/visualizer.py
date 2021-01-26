@@ -217,18 +217,22 @@ class Visualizer():
             self.saved = True
             # save images to the disk
             for label, image in visuals.items():
-                image_numpy = util.tensor2im(image)
+                if "truth" in label:
+                    continue
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
-                util.save_image(image_numpy, img_path)
-
+                if len(image.shape) > 4:
+                    image_numpy = image.detach().cpu().numpy().reshape(image.shape[2:])
+                    plot_3d(image_numpy, os.path.basename(img_path), img_path, False)
+                else:
+                    image_numpy = util.tensor2im(image)
+                    util.save_image(image_numpy, img_path)
             # update website
             webpage = html_handler.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=1)
             for n in range(epoch, 0, -1):
                 webpage.add_header('epoch [%d]' % n)
                 ims, txts, links = [], [], []
 
-                for label, image_numpy in visuals.items():
-                    image_numpy = util.tensor2im(image)
+                for label, _ in visuals.items():
                     img_path = 'epoch%.3d_%s.png' % (n, label)
                     ims.append(img_path)
                     txts.append(label)

@@ -9,7 +9,7 @@ import os
 
 class MRIViewer(object):
 
-    def __init__(self, ax, X, dim, left, colormap=cm.get_cmap('viridis')):
+    def __init__(self, ax, X, dim, left, colormap=cm.get_cmap('gray')):
         # colormap.set_under('w')
         self.dim = dim
         self.ax = ax
@@ -23,9 +23,10 @@ class MRIViewer(object):
         self.slider = Slider(ax_slider, '', 0, int(self.slices) - 1, valinit=self.ind, valstep=1)
 
         curr_x = self.get_X()
-        self.im = ax.imshow(curr_x, cmap=colormap,
-                            vmin=0.0,
-                            vmax=1.0)
+        self.im = ax.imshow(curr_x,
+                            cmap=colormap,
+                            vmin=curr_x.min(),
+                            vmax=curr_x.max())
 
         self.update(self.ind)
         self.slider.on_changed(self.update)
@@ -73,8 +74,8 @@ def plot_3d(np_data, title, filename, show_plots=False):
 
 
 if __name__ == "__main__":
-    image_file = "../datasets/braindata/train/t1/BraTS19_2013_1_1.nii"
+    image_file = "./datasets/braindata/train/t1/BraTS19_2013_0_1.nii.gz"
     niftiA = nib.load(image_file)
     niftiA_data = niftiA.get_fdata()
     image_title = os.path.basename(image_file)
-    plot_image(niftiA_data, image_title, "filename", show_plots=True)
+    plot_3d(niftiA_data, image_title, "filename", show_plots=True)

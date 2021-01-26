@@ -15,7 +15,7 @@ from data.base_dataset import BaseDataset, get_params_3d, get_params, get_transf
 import os
 from util.util import error, warning, nifti_to_np, np_to_pil, normalize_with_opt
 import torchio
-import torch
+import matplotlib.pyplot as plt
 
 class NIfTIDataset(BaseDataset):
     """A template dataset class for you to implement custom datasets."""
@@ -136,6 +136,7 @@ class NIfTIDataset(BaseDataset):
             B = torchio.Image(chosen_imgB, torchio.INTENSITY)
             if os.path.exists(current_truthpath):
                 truth = torchio.LabelMap(current_truthpath)
+                truth.data[truth.data > 1] = 1
             self.original_shape = A.shape[1:]
             affine = A.affine
             transform_params = get_params_3d(self.opt, A.shape)
@@ -148,9 +149,9 @@ class NIfTIDataset(BaseDataset):
         truth_torch = None
         if truth is not None:
             truth = c_transform(truth)
-            truth_torch = (truth != truth.min())
+            truth_torch = (truth.data != truth.data.min())
         # Make absolutely sure that truth and mask are correct.
-        B_mask = (B_torch != B_torch.min()).to(torch.int32)
+        B_mask = (B_torch.data != B_torch.data.min())
         return {'A': A_torch.data, 'B': B_torch.data,
                 'mask': B_mask, 'truth': truth_torch,
                 'A_paths': chosen_imgA, 'B_paths': chosen_imgB}
