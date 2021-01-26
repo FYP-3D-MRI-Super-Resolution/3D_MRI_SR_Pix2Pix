@@ -45,7 +45,8 @@ def save_web_nifti(webpage, visuals, image_path, show=False, width=256, chosen_s
         image_path (str)         -- the string is used to create image paths
         aspect_ratio (float)     -- the aspect ratio of saved images
         width (int)              -- the images will be resized to width x width
-
+        chosen_slice (int)       -- slice to plot
+        target_shape             -- shape of the slice image to plot
     This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
     """
     image_dir = webpage.get_image_dir()
@@ -60,8 +61,8 @@ def save_web_nifti(webpage, visuals, image_path, show=False, width=256, chosen_s
         image_name = '%s_%s.png' % (name, label)
         save_path = os.path.join(image_dir, image_name)
         if sliced:
-            # cropped = util.crop_center(img, target_shape)
-            util.plot_2d(img, save_path)
+            cropped = util.crop_center(img, target_shape)
+            util.plot_2d(cropped, save_path)
         else:
             cropped = util.crop_center(img[:, :, chosen_slice], target_shape)
             util.plot_2d(cropped, save_path)

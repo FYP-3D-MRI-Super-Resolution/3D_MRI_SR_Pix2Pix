@@ -63,12 +63,10 @@ def plot_2d(image, filename):
     ax = fig.add_subplot(1, 1, 1)
     image = np.rot90(image, k=-1)
     image = np.flip(image, axis=1)
-    ax.set_xlim(right=image.shape[0])
-    ax.set_ylim(top=image.shape[1])
     ax.set_yticks([])
     ax.set_xticks([])
 
-    ax.imshow(image, vmin=np.min(image) + 0.1e-10, vmax=np.max(image), cmap="gray")
+    ax.imshow(image, cmap="gray")
     plt.savefig(filename, bbox_inches='tight')
     plt.close(fig)
 
