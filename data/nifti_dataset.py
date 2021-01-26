@@ -48,11 +48,10 @@ class NIfTIDataset(BaseDataset):
         parser.add_argument('--truth_folder', type=str, default="truth",
                             help='folder where the truth files are saved (if exists).')
         parser.add_argument('--postprocess', type=int, default=-1, const=-1, nargs='?',
-                            choices=[-1, 0, 1, 2],
+                            choices=[-1, 0, 1],
                             help='the kind of post-processing to apply to the images. -1 means no postprocessing, '
                                  '0 means normalize in range [0, 1], '
-                                 '1 means normalize with unit variance and mean 0,'
-                                 'and 2 means scale to be in range [0, 1] and then normalize in range [-1, 1].')
+                                 '1 means normalize with unit variance and mean 0.')
         parser.set_defaults(input_nc=1, output_nc=1)  # specify dataset-specific default values
         return parser
 
@@ -89,8 +88,10 @@ class NIfTIDataset(BaseDataset):
         if len(self.image_pathsA) != len(self.image_pathsB):
             error("The length of the image paths does not correspond, please check if the images are the same.")
 
-        # You can call sorted(make_dataset(self.root, opt.max_dataset_size)) to get all the image paths under the directory self.root
-        # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
+        # You can call sorted(make_dataset(self.root, opt.max_dataset_size))
+        # to get all the image paths under the directory self.root
+        # define the default transform function. You can use <base_dataset.get_transform>;
+        # You can also define your custom transform function
         # self.transform = get_transform(opt, grayscale=True)
 
     def __getitem__(self, index):
@@ -135,7 +136,6 @@ class NIfTIDataset(BaseDataset):
             B = torchio.Image(chosen_imgB, torchio.INTENSITY)
             if os.path.exists(current_truthpath):
                 truth = torchio.LabelMap(current_truthpath)
-                truth.data[truth.data > 1] = 1
             self.original_shape = A.shape[1:]
             affine = A.affine
             transform_params = get_params_3d(self.opt, A.shape)
@@ -147,8 +147,9 @@ class NIfTIDataset(BaseDataset):
         B_torch = c_transform(B)
         truth_torch = None
         if truth is not None:
-            truth_torch = c_transform(truth)
-
+            truth = c_transform(truth)
+            truth_torch = (truth != truth.min())
+        # Make absolutely sure that truth and mask are correct.
         B_mask = (B_torch != B_torch.min()).to(torch.int32)
         return {'A': A_torch.data, 'B': B_torch.data,
                 'mask': B_mask, 'truth': truth_torch,
