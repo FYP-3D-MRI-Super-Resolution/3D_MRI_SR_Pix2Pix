@@ -1,16 +1,13 @@
 import argparse
 import os
 from pathlib import Path
-import nibabel as nib
-import numpy as np
-import math
 import shutil
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Put the images in the right folders for GAN training and testing.')
     parser.add_argument('--folder', type=str, help='folder where the NifTi files are stored')
     parser.add_argument('--save_folder', type=str, help='folder where the NifTi files will be stored')
-    parser.add_argument('--phase', required=True, choices=['train', 'test', 'validation', 'test_truth'], type=str, help='train, test or validation')
+    parser.add_argument('--phase', required=True, type=str, help='the name of the folder, e.g. train, test, etc.')
 
     args = parser.parse_args()
 
