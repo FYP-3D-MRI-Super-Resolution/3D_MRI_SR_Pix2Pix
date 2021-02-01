@@ -152,7 +152,6 @@ def get_transform_torchio(opt, params=None, convert=True):
 
     if not opt.no_flip:
         # transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap'), flip_probability=params['flip']))
-        print(params['flip'])
         if params is None:
             transform_list.append(t_transforms.RandomFlip(axes=('LR',)))
         else:
