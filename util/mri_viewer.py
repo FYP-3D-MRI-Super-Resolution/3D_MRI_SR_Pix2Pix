@@ -34,8 +34,8 @@ class MRIViewer(object):
     def get_X(self):
         if self.dim == 0:
             x = self.X[self.ind, :, :]
-            x = np.rot90(x, k=2)
-            x = np.flip(x, axis=1)
+            # x = np.rot90(x, k=2)
+            # x = np.flip(x, axis=1)
         elif self.dim == 1:
             x = self.X[:, self.ind, :]
         else:
@@ -55,8 +55,8 @@ class MRIViewer(object):
 
 
 def plot_3d(np_data, title, filename, show_plots=False):
-    np_data = np.rot90(np_data, axes=(0, 2))
-    np_data = np.flip(np_data, axis=[2])
+    # np_data = np.rot90(np_data, axes=(0, 2))
+    # np_data = np.flip(np_data, axis=[2])
     fig = plt.figure()
     fig.suptitle(title)
     ax1 = fig.add_subplot(1, 3, 1)

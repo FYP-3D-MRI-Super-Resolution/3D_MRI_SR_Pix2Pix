@@ -153,9 +153,9 @@ def get_transform_torchio(opt, params=None, convert=True):
     if not opt.no_flip:
         # transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap'), flip_probability=params['flip']))
         if params is None:
-            transform_list.append(t_transforms.RandomFlip(axes=('LR',)))
+            transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap',)))
         else:
-            transform_list.append(t_transforms.RandomFlip(axes=('LR',), flip_probability=params['flip']))
+            transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap',), flip_probability=params['flip']))
 
     if convert:
         transform_list += [t_transforms.RescaleIntensity(out_min_max=(0, 1))]
