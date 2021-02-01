@@ -150,7 +150,6 @@ class NIfTIDataset(BaseDataset):
         if truth is not None:
             truth = c_transform(truth)
             truth_torch = (truth.data != truth.data.min())
-        # Make absolutely sure that truth and mask are correct.
         B_mask = (B_torch.data != B_torch.data.min())
         return {'A': A_torch.data, 'B': B_torch.data,
                 'mask': B_mask, 'truth': truth_torch,

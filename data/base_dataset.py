@@ -152,10 +152,11 @@ def get_transform_torchio(opt, params=None, convert=True):
 
     if not opt.no_flip:
         # transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap'), flip_probability=params['flip']))
+        print(params['flip'])
         if params is None:
-            transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap')))
+            transform_list.append(t_transforms.RandomFlip(axes=('LR',)))
         else:
-            transform_list.append(t_transforms.RandomFlip(axes=('LR', 'ap'), flip_probability=params['flip']))
+            transform_list.append(t_transforms.RandomFlip(axes=('LR',), flip_probability=params['flip']))
 
     if convert:
         transform_list += [t_transforms.RescaleIntensity(out_min_max=(0, 1))]
@@ -164,9 +165,7 @@ def get_transform_torchio(opt, params=None, convert=True):
 
 
 def __normalize(tensor, mean, std):
-    tensor -= mean
-    tensor /= std
-    return tensor
+    return (tensor - mean) / std
 
 
 def __make_power_2(img, base, method=Image.BICUBIC):
