@@ -48,6 +48,7 @@ class Pix2PixModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         self.mask = None
+        self.truth = None
         self.real_A = None
         self.real_B = None
         # specify the training losses you want to print out.
@@ -106,11 +107,13 @@ class Pix2PixModel(BaseModel):
         else:
             # If we are not using nifti the mask is just the image itself
             self.mask = torch.ones(self.real_B.shape, dtype=torch.bool)
+        self.mask = self.mask.to(self.device)
         if self.nifti and input['truth'] is not None:
             self.truth = input['truth']
         else:
             # If we don't have the truth, nothing should matter
             self.truth = torch.zeros(self.real_B.shape, dtype=torch.bool)
+        self.truth = self.truth.to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
