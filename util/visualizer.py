@@ -219,7 +219,7 @@ class Visualizer():
             for label, image in visuals.items():
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
                 if len(image.shape) > 4:
-                    image_numpy = image.detach().cpu().numpy().reshape(image.shape[2:])
+                    image_numpy = image.data[0].cpu().float().numpy().reshape(image.shape[2:])
                     plot_3d(image_numpy, os.path.basename(img_path), img_path, False)
                 else:
                     image_numpy = util.tensor2im(image)
