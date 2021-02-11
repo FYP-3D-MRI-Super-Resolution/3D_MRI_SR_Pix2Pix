@@ -1,0 +1,6 @@
+docs
+venv
+.git
+.idea
+*.ipynb
+README*
