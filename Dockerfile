@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:experimental
 FROM python:3.8
 
 ADD . .
@@ -8,10 +7,6 @@ RUN apt-get update
 RUN apt-get install ffmpeg libsm6 libxext6  -y
 
 RUN pip install -r requirements.txt
-
-RUN --mount=type=bind,source=/raid/gbaldini/braindata_all,target=/raid/gbaldini/braindata_all \
-python ./datasets/make_nifti_dataset.py --save_folder ./datasets/braindata \
---folder ../data/braindata_small --phase train
 
 ENTRYPOINT ["python", "train.py", \
 "--dataset_mode", "nifti", \
