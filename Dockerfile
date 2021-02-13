@@ -9,6 +9,8 @@ RUN apt-get install python3-dev python3-pip ffmpeg libsm6 libxext6 -y
 WORKDIR Pix2PixNIfTI
 ADD . .
 
+RUN mkdir checkpoints
+
 RUN pip3 install -r requirements.txt
 
 CMD ["bash", "grid_search.sh"]
