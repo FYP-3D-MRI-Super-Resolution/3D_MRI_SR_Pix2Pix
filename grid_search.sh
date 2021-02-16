@@ -11,4 +11,4 @@ for l in ${lone[@]}; do
   done
 done
 
-nvidia-docker run --mount type=bind,source=/raid/gbaldini/pix_data,target=/input --mount type=bind,source=/raid/gbaldini/pix_checkpoints,target=/checkpoints pix
+# nvidia-docker run --mount type=bind,source=/raid/gbaldini/pix_data,target=/input --mount type=bind,source=/raid/gbaldini/pix_checkpoints,target=/checkpoints pix
