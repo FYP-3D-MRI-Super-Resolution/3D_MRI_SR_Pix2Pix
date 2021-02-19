@@ -144,7 +144,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
 def get_transform_torchio(opt, params=None, convert=True):
     transform_list = []
 
-    if 'resize' in opt.preprocess:
+    if 'resize' in opt.preprocess or 'pad' in opt.preprocess:
         transform_list.append(t_transforms.CropOrPad((opt.load_size, opt.load_size, opt.load_size)))
 
     if 'crop' in opt.preprocess and params is not None:
