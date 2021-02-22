@@ -11,4 +11,6 @@ ADD . .
 
 RUN pip3 install -r requirements.txt
 
-CMD ["bash", "./scripts/brain_pix2pix/grid_search.sh"]
+RUN chmod +x ./scripts/brain_pix2pix/grid_search.sh
+
+ENTRYPOINT ["bash", "/Pix2PixNIfTI/scripts/brain_pix2pix/grid_search.sh"]
