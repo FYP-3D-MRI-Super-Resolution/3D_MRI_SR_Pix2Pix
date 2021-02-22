@@ -11,4 +11,4 @@ ADD . .
 
 RUN pip3 install -r requirements.txt
 
-CMD ["bash", "grid_search_test.sh"]
+CMD ["bash", "./scripts/brain_pix2pix/grid_search.sh"]

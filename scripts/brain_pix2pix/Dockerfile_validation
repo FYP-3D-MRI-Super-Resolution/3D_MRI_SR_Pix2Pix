@@ -1,0 +1,3 @@
+FROM pix
+
+CMD ["bash", "./scripts/brain_pix2pix/grid_search_test.sh"]
