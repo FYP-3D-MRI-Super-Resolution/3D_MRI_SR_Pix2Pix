@@ -1,4 +1,4 @@
-FROM pix
+FROM base
 
 RUN chmod +x ./scripts/brain_pix2pix/grid_search_test.sh
 
