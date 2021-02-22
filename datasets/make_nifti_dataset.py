@@ -13,6 +13,7 @@ if __name__ == "__main__":
 
     folder = Path.cwd() / args.folder / args.phase
     store_folder = Path.cwd() / args.save_folder / args.phase
+    print("SOURCE:", folder, "TARGET:", store_folder)
     extension = ".nii.gz"
     # This function is based on my file hierarchy, where there are different big files containing one file per patient
     for brain_folder in folder.iterdir():
