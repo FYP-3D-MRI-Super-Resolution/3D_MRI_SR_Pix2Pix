@@ -33,7 +33,7 @@ class Pix2PixModel(BaseModel):
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
         parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
         parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-        parser.add_argument('--lambda_L2_T', type=float, default=100.0, help='weight for L2 truth loss in tumor area')
+        parser.add_argument('--gamma_TMSE', type=float, default=100.0, help='weight for L2 truth loss in tumor area')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
@@ -146,7 +146,7 @@ class Pix2PixModel(BaseModel):
         self.loss_G_L1 = self.criterionL1(self.fake_B * self.mask, self.real_B * self.mask) * self.opt.lambda_L1
         # Compute the L2 loss on the tumor area
         self.loss_G_L2_T = self.criterionTumor(self.fake_B * self.truth,
-                                               self.real_B * self.truth) * self.opt.lambda_L2_T
+                                               self.real_B * self.truth) * self.opt.gamma_TMSE
         # print(self.loss_G_L1, self.loss_G_L2_T)
         self.loss_G_L1 = zero_division(self.loss_G_L1, torch.sum(self.mask))
         # TODO: Problem what to do with slices without tumor
