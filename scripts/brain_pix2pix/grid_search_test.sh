@@ -1,6 +1,6 @@
 #!/bin/bash
 lone=(0 100 500)
-ltwo=(0 100 500)
+ltwo=(0 100 500 1000)
 
 # python3 ./datasets/make_nifti_dataset.py --folder /raid/gbaldini/braindata_all --save_folder /raid/gbaldini/pix_data --phase validation
 
