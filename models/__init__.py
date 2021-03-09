@@ -20,7 +20,7 @@ See our template model class 'template_model.py' for more details.
 
 import importlib
 from models.base_model import BaseModel
-
+import torch
 
 def find_model_using_name(model_name):
     """Import the module "models/[model_name]_model.py".
@@ -35,11 +35,12 @@ def find_model_using_name(model_name):
     target_model_name = model_name.replace('_', '') + 'model'
     for name, cls in modellib.__dict__.items():
         if name.lower() == target_model_name.lower() \
-           and issubclass(cls, BaseModel):
+                and issubclass(cls, BaseModel):
             model = cls
 
     if model is None:
-        print("In %s.py, there should be a subclass of BaseModel with class name that matches %s in lowercase." % (model_filename, target_model_name))
+        print("In %s.py, there should be a subclass of BaseModel with class name that matches %s in lowercase." % (
+            model_filename, target_model_name))
         exit(0)
 
     return model
@@ -63,5 +64,14 @@ def create_model(opt):
     """
     model = find_model_using_name(opt.model)
     instance = model(opt)
+    if opt.fp16:
+        from apex import amp
+        instance, [instance.optimizer_G, instance.optimizer_D] = amp.initialize(model,
+                                                                                [instance.optimizer_G,
+                                                                                 instance.optimizer_D],
+                                                                                opt_level='O1')
+
+    instance = torch.nn.DataParallel(instance, instance.gpu_ids)  # multi-GPUs
+
     print("model [%s] was created" % type(instance).__name__)
     return instance
