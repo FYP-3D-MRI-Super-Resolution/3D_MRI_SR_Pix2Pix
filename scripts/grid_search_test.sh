@@ -1,5 +1,5 @@
 #!/bin/bash
-lone=(0 100 500)
+lone=(0 100 500 1000)
 ltwo=(0 100 500 1000)
 
 # python3 ./datasets/make_nifti_dataset.py --folder /raid/gbaldini/braindata_all --save_folder /raid/gbaldini/pix_data --phase validation
@@ -13,4 +13,4 @@ for l in ${lone[@]}; do
   done
 done
 
-# nvidia-docker run --mount type=bind,source=/raid/gbaldini/pix_data,target=/input --mount type=bind,source=/raid/gbaldini/pix_checkpoints,target=/checkpoints --mount type=bind,source=/raid/gbaldini/pix_output,target=/results pix_grid_val
+# nvidia-docker run --rm --mount type=bind,source=/raid/gbaldini/pix_data,target=/input --mount type=bind,source=/raid/gbaldini/pix_checkpoints,target=/checkpoints --mount type=bind,source=/raid/gbaldini/pix_output,target=/results pix_grid_val
