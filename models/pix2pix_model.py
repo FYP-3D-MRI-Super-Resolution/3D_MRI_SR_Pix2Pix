@@ -37,7 +37,6 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
-
         return parser
 
     def __init__(self, opt, threed=False):
@@ -68,7 +67,8 @@ class Pix2PixModel(BaseModel):
         # define networks (both generator and discriminator)
 
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
-                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, threed)
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, opt.upsampling,
+                                      threed)
 
         if self.isTrain:  # define a discriminator;
             # conditional GANs need to take both input and output images;
