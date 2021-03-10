@@ -15,7 +15,6 @@ from data.base_dataset import BaseDataset, get_params_3d, get_params, get_transf
 import os
 from util.util import error, warning, nifti_to_np, np_to_pil, normalize_with_opt
 import torchio
-import matplotlib.pyplot as plt
 
 class NIfTIDataset(BaseDataset):
     """A template dataset class for you to implement custom datasets."""
@@ -146,6 +145,7 @@ class NIfTIDataset(BaseDataset):
 
         A_torch = c_transform(A)
         B_torch = c_transform(B)
+
         truth_torch = None
         if truth is not None:
             truth = c_transform(truth)
