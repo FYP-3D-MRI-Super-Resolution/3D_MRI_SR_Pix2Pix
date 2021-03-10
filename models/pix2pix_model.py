@@ -37,7 +37,6 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
-
         return parser
 
     def __init__(self, opt, threed=False):
@@ -51,6 +50,7 @@ class Pix2PixModel(BaseModel):
         self.truth = None
         self.real_A = None
         self.real_B = None
+        self.fp16 = opt.fp16
         # specify the training losses you want to print out.
         # The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_GAN', 'G_L1', 'G_L2_T', 'D_real', 'D_fake']
@@ -90,6 +90,17 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
+            if self.fp16:
+                from apex import amp
+                [self.netD, self.netG], [self.optimizer_D, self.optimizer_G] = amp.initialize(
+                    [self.netD, self.netG],
+                    [self.optimizer_D, self.optimizer_G],
+                    opt_level='O1',
+                    num_losses=2
+                )
+            self.netG = torch.nn.DataParallel(self.netG, opt.gpu_ids)  # multi-GPUs
+            self.netD = torch.nn.DataParallel(self.netD, opt.gpu_ids)  # multi-GPUs
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -133,7 +144,12 @@ class Pix2PixModel(BaseModel):
         self.loss_D_real = self.criterionGAN(pred_real, True)
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
-        self.loss_D.backward()
+        if self.fp16:
+            from apex import amp
+            with amp.scale_loss(self.loss_D, self.optimizer_D, loss_id=0) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            self.loss_D.backward()
 
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
@@ -154,7 +170,12 @@ class Pix2PixModel(BaseModel):
         # print(self.loss_G_L1, self.loss_G_L2_T)
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_L2_T
-        self.loss_G.backward()
+        if self.fp16:
+            from apex import amp
+            with amp.scale_loss(self.loss_G, self.optimizer_G, loss_id=1) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            self.loss_G.backward()
 
     def optimize_parameters(self):
         self.forward()  # compute fake images: G(A)
