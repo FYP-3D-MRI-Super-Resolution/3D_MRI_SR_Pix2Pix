@@ -51,8 +51,6 @@ class Pix2PixModel(BaseModel):
         self.real_A = None
         self.real_B = None
         self.fp16 = opt.fp16
-        if self.fp16:
-            from apex import amp
         # specify the training losses you want to print out.
         # The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_GAN', 'G_L1', 'G_L2_T', 'D_real', 'D_fake']
@@ -92,6 +90,17 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
+            if self.fp16:
+                from apex import amp
+                [self.netD, self.netG], [self.optimizer_D, self.optimizer_G] = amp.initialize(
+                    [self.netD, self.netG],
+                    [self.optimizer_D, self.optimizer_G],
+                    opt_level='O1',
+                    num_losses=2
+                )
+            self.netG = torch.nn.DataParallel(self.netG, opt.gpu_ids)  # multi-GPUs
+            self.netD = torch.nn.DataParallel(self.netD, opt.gpu_ids)  # multi-GPUs
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -137,7 +146,7 @@ class Pix2PixModel(BaseModel):
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         if self.fp16:
             from apex import amp
-            with amp.scale_loss(self.loss_D, self.optimizer_D) as scaled_loss:
+            with amp.scale_loss(self.loss_D, self.optimizer_D, loss_id=0) as scaled_loss:
                 scaled_loss.backward()
         else:
             self.loss_D.backward()
@@ -163,7 +172,7 @@ class Pix2PixModel(BaseModel):
         self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_L2_T
         if self.fp16:
             from apex import amp
-            with amp.scale_loss(self.loss_G, self.optimizer_G) as scaled_loss:
+            with amp.scale_loss(self.loss_G, self.optimizer_G, loss_id=1) as scaled_loss:
                 scaled_loss.backward()
         else:
             self.loss_G.backward()
