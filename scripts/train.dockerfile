@@ -1,6 +1,7 @@
 FROM pix_base
 
-ADD ./scripts ./scripts
+WORKDIR Pix2PixNIfTI
+ADD . .
 
 RUN chmod +x ./scripts/brain_pix2pix/grid_search.sh
 
