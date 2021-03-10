@@ -3,10 +3,10 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
-from torch.nn.utils import _pair, _quadruple, _ntuple
-from torch.nn import functional as F
 from torch.nn.modules.padding import _ReflectionPadNd
-from torch.nn import common_types
+from torch.nn.modules.utils import _ntuple
+from torch.nn.common_types import _scalar_or_tuple_6_t
+
 from typing import Tuple
 
 
@@ -15,11 +15,11 @@ from typing import Tuple
 ###############################################################################
 
 class ReflectionPad3d(_ReflectionPadNd):
-    padding: Tuple[int, int, int, int, int, int, int, int]
+    padding: Tuple[int, int, int, int, int, int]
 
-    def __init__(self, padding: common_types._size_4_t) -> None:
+    def __init__(self, padding: _scalar_or_tuple_6_t) -> None:
         super(ReflectionPad3d, self).__init__()
-        self.padding = _quadruple(padding)
+        self.padding = _ntuple(6)(padding)
 
 
 class Identity(nn.Module):
@@ -147,7 +147,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     Return an initialized network.
     """
     if len(gpu_ids) > 0:
-        assert(torch.cuda.is_available())
+        assert (torch.cuda.is_available())
         net.to(gpu_ids[0])
         # net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
     init_weights(net, init_type, init_gain=init_gain)
@@ -579,7 +579,7 @@ class UpsampleUnetSkipConnectionBlock(nn.Module):
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
         upnorm = norm_layer(outer_nc)
-        upsample = nn.Upsample(scale_factor=2, mode='bilinear')
+        upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
         if outermost:
             # upconv = conv_trans_layer(inner_nc * 2, outer_nc,
