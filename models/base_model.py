@@ -33,7 +33,7 @@ class BaseModel(ABC):
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
         self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')  # get device name: CPU or GPU
-        if torch.cuda.is_available():
+        if len(self.gpu_ids) > 0:
             print("Device:", torch.cuda.get_device_name(0))
             print("CUDA:", torch._C._cuda_getCompiledVersion())
             print("CUDNN:", torch.backends.cudnn.version())
