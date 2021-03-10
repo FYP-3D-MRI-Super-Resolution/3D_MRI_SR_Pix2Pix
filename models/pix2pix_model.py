@@ -92,7 +92,7 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 
-            if self.fp16:
+            if len(opt.gpu_ids) > 0 and self.fp16:
                 from apex import amp
                 [self.netD, self.netG], [self.optimizer_D, self.optimizer_G] = amp.initialize(
                     [self.netD, self.netG],
@@ -100,8 +100,10 @@ class Pix2PixModel(BaseModel):
                     opt_level='O1',
                     num_losses=2
                 )
+            if len(opt.gpu_ids) > 0:
+                self.netD = torch.nn.DataParallel(self.netD, opt.gpu_ids)  # multi-GPUs
+        if len(opt.gpu_ids) > 0:
             self.netG = torch.nn.DataParallel(self.netG, opt.gpu_ids)  # multi-GPUs
-            self.netD = torch.nn.DataParallel(self.netD, opt.gpu_ids)  # multi-GPUs
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
