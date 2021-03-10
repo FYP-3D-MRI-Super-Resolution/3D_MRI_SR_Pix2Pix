@@ -35,7 +35,7 @@ class BaseModel(ABC):
         self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')  # get device name: CPU or GPU
         if torch.cuda.is_available():
             print("Device:", torch.cuda.get_device_name(0))
-            print("CUDA:", torch.cuda.current_device())
+            print("CUDA:", torch._C._cuda_getCompiledVersion())
             print("CUDNN:", torch.backends.cudnn.version())
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)  # save all the checkpoints to save_dir
         if opt.preprocess != 'scale_width':  # with [scale_width], input images might have different sizes, which hurts the performance of cudnn.benchmark.
