@@ -568,8 +568,10 @@ class UpsampleUnetSkipConnectionBlock(nn.Module):
 
         if threed:
             conv_layer = nn.Conv3d
+            upsample = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=False)
         else:
             conv_layer = nn.Conv2d
+            upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
         if input_nc is None:
             input_nc = outer_nc
@@ -579,7 +581,6 @@ class UpsampleUnetSkipConnectionBlock(nn.Module):
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
         upnorm = norm_layer(outer_nc)
-        upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
         if outermost:
             # upconv = conv_trans_layer(inner_nc * 2, outer_nc,
