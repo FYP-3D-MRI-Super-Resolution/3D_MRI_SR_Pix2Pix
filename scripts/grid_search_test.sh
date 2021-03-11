@@ -6,6 +6,7 @@ ltwo=(0 100 500 1000)
 
 for l in ${lone[@]}; do
   for ll in ${ltwo[@]}; do
+    echo "${l}, ${ll}"
     python3 test.py --dataset_mode nifti --model pix2pix3d --name t1t2 --eval --excel \
     --lambda_L1 $l --gamma_TMSE $ll --gpu_id 0 --suffix {model}_l{lambda_L1}_g{gamma_TMSE} \
     --preprocess pad --postprocess 1 --phase validation \
