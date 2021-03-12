@@ -11,7 +11,8 @@ ENV TZ=Europe/Berlin
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    git ffmpeg libsm6 libxext6 \
+#     git \
+    ffmpeg libsm6 libxext6 \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -33,10 +34,10 @@ RUN conda install -y python=$PYTHON_VERSION && \
     pip install --no-cache-dir opencv-python torchio==0.17.50 && \
     conda clean --yes --all
 
-RUN cd .. && \ 
-    git clone https://github.com/NVIDIA/apex.git && \
-    cd apex && \
-    pip3 install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
+# RUN cd .. && \
+#     git clone https://github.com/NVIDIA/apex.git && \
+#     cd apex && \
+#     pip3 install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
 
 FROM nvcr.io/nvidia/cuda:11.0.3-base-ubuntu20.04
 
