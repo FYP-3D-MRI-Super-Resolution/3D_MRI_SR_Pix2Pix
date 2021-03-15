@@ -6,7 +6,8 @@ ltwo=(500)
 
 for l in ${lone[@]}; do
   for ll in ${ltwo[@]}; do
-    python3 train.py --dataset_mode nifti --model pix2pix3d --name t1t2 --n_epochs 100 --n_epochs_decay 100 --fp16 \
+    echo "${l}, ${ll}"
+    python3 train.py --dataset_mode nifti --model pix2pix --crop_size 256 --name t1t2 --fp16 \
     --lambda_L1 $l --gamma_TMSE $ll --gpu_id 0,1 --suffix {model}_l{lambda_L1}_g{gamma_TMSE} \
     --dataroot /input --checkpoints_dir /checkpoints
   done
