@@ -43,8 +43,7 @@ def postprocess_images(visuals, opt, original_shape):
     np_dict = {}
     # Transform images
     for label, image in visuals.items():
-        np_image = image.detach().cpu().numpy().reshape(image.shape[2:])
-        np_dict[label] = np_image
+        np_dict[label] = image.detach().cpu().numpy().reshape(image.shape[2:])
 
     # Add the brain mask to the new image
     zero_brain_mask = np.where(np_dict['real_A'] == np_dict['real_A'].min())
@@ -54,9 +53,9 @@ def postprocess_images(visuals, opt, original_shape):
     np_dict['fake_B_smoothed'] = filter_blur(np_dict['fake_B'], opt.smoothing)
 
     for label, image in np_dict.items():
-        if image.shape > original_shape:  # They could potentially have different sizes, but not tested
+        # They could potentially have different sizes, but not tested
+        if all(i > j for i, j in zip(image.shape, original_shape)):
             np_dict[label] = crop_center(image, original_shape)
-
     return np_dict
 
 
