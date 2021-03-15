@@ -64,8 +64,6 @@ def save_web_nifti(webpage, visuals, image_path, show=False, width=256, chosen_s
             cropped = util.crop_center(img, target_shape)
             util.plot_2d(cropped, save_path)
         else:
-            cropped = util.crop_center(img[:, :, chosen_slice], target_shape)
-            util.plot_2d(cropped, save_path)
             plot_3d(img, name + "_" + label, save_path, show)
         ims.append(image_name)
         txts.append(label)
