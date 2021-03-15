@@ -50,6 +50,13 @@ if __name__ == '__main__':
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     # Determine whether we are using nifti images
+    if opt.print_model_info and "pix2pix" in opt.model:
+        from torchsummary import summary
+        if "3d" in opt.model:
+            summary(model.netG, (opt.input_nc, opt.crop_size, opt.crop_size, opt.crop_size))
+        else:
+            summary(model.netG, (opt.input_nc, opt.crop_size, opt.crop_size))
+
     nifti = True if opt.dataset_mode == "nifti" else False
     # create a website
     exc_eval = None
