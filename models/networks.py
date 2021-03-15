@@ -22,6 +22,36 @@ class ReflectionPad3d(_ReflectionPadNd):
         self.padding = _ntuple(6)(padding)
 
 
+class LinearAdditiveUpsample(nn.Module):
+    # batch, channels, X, Y = [1, 1024, 8, 8]
+    # first upsample: batch, channels, X * 2, Y * 2 = [1, 1024, 16, 16]
+    # then reduce: batch, channels / n_splits, X * 2, Y * 2 = [1, 256, 8, 8]
+
+    def __init__(self, scale_factor, threed, n_splits):
+        super(LinearAdditiveUpsample, self).__init__()
+        self.scale_factor = scale_factor
+        self.n_splits = n_splits
+        if threed:
+            self.mode = 'trilinear'
+        else:
+            self.mode = 'bilinear'
+
+    def forward(self, input_tensor):
+        n_channels = input_tensor.shape[1]
+        assert self.n_splits > 0 and n_channels % self.n_splits == 0, \
+            "Number of feature channels should be divisible by n_splits"
+        resizing_layer = nn.functional.interpolate(input_tensor, scale_factor=self.scale_factor,
+                                                   mode=self.mode, align_corners=False)
+        print("it", input_tensor.shape)
+        print("resize", resizing_layer.shape)
+        split = torch.split(resizing_layer, self.n_splits, dim=1)
+        split_tensor = torch.stack(split, dim=1)
+        print("stacked", split_tensor.shape)
+        output_tensor = torch.sum(split_tensor, dim=-1)
+        print("ot", output_tensor.shape)
+        return output_tensor
+
+
 class Identity(nn.Module):
     def forward(self, x):
         return x
@@ -573,6 +603,8 @@ class UpsampleUnetSkipConnectionBlock(nn.Module):
             conv_layer = nn.Conv2d
             upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
+        # upsample = LinearAdditiveUpsample(scale_factor=2, n_splits=4, threed=threed)
+
         if input_nc is None:
             input_nc = outer_nc
         downconv = conv_layer(input_nc, inner_nc, kernel_size=4,
@@ -620,6 +652,7 @@ class UpsampleUnetSkipConnectionBlock(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
+        print(x.shape)
         if self.outermost:
             return self.model(x)
         else:  # add skip connections
