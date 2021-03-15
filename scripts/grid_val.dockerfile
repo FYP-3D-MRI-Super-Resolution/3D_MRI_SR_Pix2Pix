@@ -5,4 +5,4 @@ ADD . .
 
 RUN chmod +x ./scripts/grid_search_test.sh
 
-ENTRYPOINT ["bash", "/Pix2PixNIfTI/scripts/grid_search_test.sh"]
+ENTRYPOINT ["bash", "./scripts/grid_search_test.sh"]

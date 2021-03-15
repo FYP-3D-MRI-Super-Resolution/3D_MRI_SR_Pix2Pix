@@ -38,6 +38,7 @@ class BaseOptions():
         parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--no_dropout', action='store_true', help='no dropout for the generator')
         # dataset parameters
+        parser.add_argument('--fp16', action='store_true', default=False, help='train with AMP')
         parser.add_argument('--upsampling', type=str, default='linear', help='chooses the upsampling operation. [deconvolution | linear ]')
         parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single | colorization]')
         parser.add_argument('--direction', type=str, default='AtoB', help='AtoB or BtoA')
