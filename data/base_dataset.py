@@ -95,7 +95,7 @@ def get_params_3d(opt, size):
     new_h = h
     new_w = w
     new_d = d
-    if opt.preprocess == 'resize_and_crop':
+    if opt.preprocess == 'resize_and_crop' or opt.preprocess == 'take_center_and_crop':
         new_h = new_w = new_d = opt.load_size
     elif opt.preprocess == 'scale_width_and_crop':
         new_w = opt.load_size
@@ -152,7 +152,7 @@ def get_transform_torchio(opt, params=None, convert=True):
     transform_list = []
 
     if 'resize' in opt.preprocess or 'pad' in opt.preprocess or 'take_center' in opt.preprocess:
-        transform_list.append(t_transforms.CropOrPad((opt.load_size, opt.load_size, opt.load_size)))
+        transform_list.append(t_transforms.CropOrPad(opt.load_size))
 
     if 'crop' in opt.preprocess and params is not None:
         transform_list.append(t_transforms.Lambda(lambda img: __crop3d(img, params['crop_pos'], opt.crop_size)))
