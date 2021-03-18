@@ -3,24 +3,42 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
-from torch.nn.modules.padding import _ReflectionPadNd
-from torch.nn.modules.utils import _ntuple
-from torch.nn.common_types import _scalar_or_tuple_6_t
-
-from typing import Tuple
+import torch.nn.functional as F
 
 
 ###############################################################################
 # Helper Functions
 ###############################################################################
 
-# TODO: Not Tested
-class ReflectionPad3d(_ReflectionPadNd):
-    padding: Tuple[int, int, int, int, int, int]
-
-    def __init__(self, padding: _scalar_or_tuple_6_t) -> None:
+class ReflectionPad3d(nn.Module):
+    def __init__(self, padding):
         super(ReflectionPad3d, self).__init__()
-        self.padding = _ntuple(6)(padding)
+        self.padding = padding
+        if isinstance(padding, int):
+            self.padding = (padding,) * 6
+
+    # Fix from https://github.com/yashasvi-ranawat/pytorch/blob/patch-1/torch/nn/functional.py
+    def forward(self, input):
+        """
+        Arguments
+            :param input: tensor of shape :math:`(N, C_{\text{in}}, H, [W, D]))`
+        Returns
+            :return: tensor of shape :math:`(N, C_{\text{in}}, [D + 2 * self.padding[0],
+                     H + 2 * self.padding[1]], W + 2 * self.padding[2]))`
+        """
+
+        input = torch.cat([input, input.flip([2])[:, :, 0:self.padding[-1]]], dim=2)
+        input = torch.cat([input.flip([2])[:, :, -self.padding[-2]:], input], dim=2)
+
+        if len(self.padding) > 2:
+            input = torch.cat([input, input.flip([3])[:, :, :, 0:self.padding[-3]]], dim=3)
+            input = torch.cat([input.flip([3])[:, :, :, -self.padding[-4]:], input], dim=3)
+
+        if len(self.padding) > 4:
+            input = torch.cat([input, input.flip([4])[:, :, :, :, 0:self.padding[-5]]], dim=4)
+            input = torch.cat([input.flip([4])[:, :, :, :, -self.padding[-6]:], input], dim=4)
+
+        return input
 
 
 class LinearAdditiveUpsample(nn.Module):
@@ -421,13 +439,13 @@ class ResnetGenerator(nn.Module):
         if threed:
             conv_layer = nn.Conv3d
             conv_trans_layer = nn.ConvTranspose3d
-            reflection_pad = ReflectionPad3d
+            reflection_pad = ReflectionPad3d(3)
         else:
             conv_layer = nn.Conv2d
             conv_trans_layer = nn.ConvTranspose2d
-            reflection_pad = nn.ReflectionPad2d
+            reflection_pad = nn.ReflectionPad2d(3)
 
-        model = [reflection_pad(3),
+        model = [reflection_pad,
                  conv_layer(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
                  norm_layer(ngf),
                  nn.ReLU(True)]
@@ -460,7 +478,7 @@ class ResnetGenerator(nn.Module):
                           ]
             model += [norm_layer(int(ngf * mult / 2)),
                       nn.ReLU(True)]
-        model += [reflection_pad(3)]
+        model += [reflection_pad]
         model += [conv_layer(ngf, output_nc, kernel_size=7, padding=0)]
         model += [nn.Tanh()]
 
@@ -502,19 +520,19 @@ class ResnetBlock(nn.Module):
 
         if threed:
             conv_layer = nn.Conv3d
-            reflection_pad = ReflectionPad3d
-            replication_pad = nn.ReplicationPad3d
+            replication_pad = nn.ReplicationPad3d(1)
+            reflection_pad = ReflectionPad3d(1)
         else:
             conv_layer = nn.Conv2d
-            reflection_pad = nn.ReflectionPad2d
-            replication_pad = nn.ReplicationPad2d
+            replication_pad = nn.ReplicationPad2d(1)
+            reflection_pad = nn.ReflectionPad2d(1)
 
         conv_block = []
         p = 0
         if padding_type == 'reflect':
-            conv_block += [reflection_pad(1)]
+            conv_block += [reflection_pad]
         elif padding_type == 'replicate':
-            conv_block += [replication_pad(1)]
+            conv_block += [replication_pad]
         elif padding_type == 'zero':
             p = 1
         else:
@@ -526,9 +544,9 @@ class ResnetBlock(nn.Module):
 
         p = 0
         if padding_type == 'reflect':
-            conv_block += [reflection_pad(1)]
+            conv_block += [reflection_pad]
         elif padding_type == 'replicate':
-            conv_block += [replication_pad(1)]
+            conv_block += [replication_pad]
         elif padding_type == 'zero':
             p = 1
         else:
