@@ -13,5 +13,5 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone &
 RUN conda install -y matplotlib numpy=>1.19.2 Pillow>=8.0.1 && \
     conda install -y scipy six && \
     conda install visdom dominate nibabel -c conda-forge && \
-    pip install --no-cache-dir opencv-python torchio==0.17.50 && \
+    pip install --no-cache-dir opencv-python torchsummary torchio==0.17.50 && \
     conda clean --yes --all
