@@ -36,7 +36,7 @@ def save_nifti_images(np_dict, query_name, opt, web_dir, affine):
                             affine)
 
 
-def save_web_nifti(webpage, visuals, image_path, show=False, width=256, chosen_slice=76, target_shape=(210, 180)):
+def save_web_nifti(webpage, visuals, image_path, show=False, width=256):
     """Save images to the disk.
 
     Parameters:
@@ -61,8 +61,7 @@ def save_web_nifti(webpage, visuals, image_path, show=False, width=256, chosen_s
         image_name = '%s_%s.png' % (name, label)
         save_path = os.path.join(image_dir, image_name)
         if sliced:
-            cropped = util.crop_center(img, target_shape)
-            util.plot_2d(cropped, save_path)
+            util.plot_2d(img, save_path)
         else:
             plot_3d(img, name + "_" + label, save_path, show)
         ims.append(image_name)
