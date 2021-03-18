@@ -222,9 +222,11 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm, threed=threed)
 
     if netG == 'resnet_9blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                              use_dropout=use_dropout, n_blocks=9)
     elif netG == 'resnet_6blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                              use_dropout=use_dropout, n_blocks=6)
     elif netG == 'unet_128':
         net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, upsampling=upsampling,
                             use_dropout=use_dropout)
@@ -398,8 +400,8 @@ class ResnetGenerator(nn.Module):
     We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
     """
 
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6,
-                 padding_type='reflect'):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, upsampling='deconvolution',
+                 use_dropout=False, n_blocks=6, padding_type='reflect', n_splits=4):
         """Construct a Resnet-based generator
 
         Parameters:
@@ -445,11 +447,18 @@ class ResnetGenerator(nn.Module):
 
         for i in range(n_downsampling):  # add upsampling layers
             mult = 2 ** (n_downsampling - i)
-            model += [conv_trans_layer(ngf * mult, int(ngf * mult / 2),
-                                       kernel_size=3, stride=2,
-                                       padding=1, output_padding=1,
-                                       bias=use_bias),
-                      norm_layer(int(ngf * mult / 2)),
+            if upsampling == 'deconvolution':
+                model += [conv_trans_layer(ngf * mult, int(ngf * mult / 2),
+                                           kernel_size=3, stride=2,
+                                           padding=1, output_padding=1,
+                                           bias=use_bias)]
+            else:
+                model += [LinearAdditiveUpsample(scale_factor=2, n_splits=n_splits, threed=threed),
+                          conv_layer((ngf * mult) // n_splits, int(ngf * mult / 2),
+                                     kernel_size=3, stride=1,
+                                     padding=1)
+                          ]
+            model += [norm_layer(int(ngf * mult / 2)),
                       nn.ReLU(True)]
         model += [reflection_pad(3)]
         model += [conv_layer(ngf, output_nc, kernel_size=7, padding=0)]
