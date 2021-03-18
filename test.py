@@ -97,8 +97,7 @@ if __name__ == '__main__':
                 # Evaluate the results
                 exc_eval.evaluate(np_post, query_name_noext, opt.smoothing)
             save_nifti_images(np_post, query_name_noext, opt, web_dir, dataset.dataset.affine)
-            save_web_nifti(webpage, np_post, img_path, opt.show_plots, width=opt.display_winsize,
-                           chosen_slice=opt.chosen_slice, target_shape=(210, 180))
+            save_web_nifti(webpage, np_post, img_path, opt.show_plots, width=opt.display_winsize)
         else:
             save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
     webpage.save()  # save the HTML
