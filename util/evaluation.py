@@ -78,7 +78,8 @@ class ExcelEvaluate:
 
 def evaluate_result(seq, learned_seq, tumor_mask=None, round_fact=6, multiplier=1.0):
     if seq.shape != learned_seq.shape:
-        error("The shape of the target and learned sequencing are not the same.")
+        error("The shape of the target and learned sequencing are not the same: " +
+              str(seq.shape) + ", " + str(learned_seq.shape))
 
     tumour = None
     mask = np.logical_or(seq != seq.min(), learned_seq != learned_seq.min())
