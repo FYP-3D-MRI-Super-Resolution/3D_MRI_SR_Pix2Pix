@@ -65,14 +65,18 @@ def get_params(opt, size):
     w, h = size
     new_h = h
     new_w = w
-    if opt.preprocess == 'resize_and_crop':
+    if opt.preprocess == 'resize_and_crop' or opt.preprocess == 'take_center_and_crop':
         new_h = new_w = opt.load_size
     elif opt.preprocess == 'scale_width_and_crop':
         new_w = opt.load_size
         new_h = opt.load_size * h // w
 
+    center_x = (w - opt.load_size) // 2
+    center_y = (h - opt.load_size) // 2
+
     x = random.randint(0, np.maximum(0, new_w - opt.crop_size))
     y = random.randint(0, np.maximum(0, new_h - opt.crop_size))
+
     padding_x = opt.load_size - w
     padding_y = opt.load_size - h
     add_1 = padding_x % 2
@@ -82,7 +86,8 @@ def get_params(opt, size):
 
     flip = random.random() > 0.5
 
-    return {'crop_pos': (x, y), 'padding_vals': (div_1 + add_1, div_2 + add_2, div_1, div_2), 'flip': flip}
+    return {'crop_pos': (x, y), 'center_pos': (center_x, center_y),
+            'padding_vals': (div_1 + add_1, div_2 + add_2, div_1, div_2), 'flip': flip}
 
 
 def get_params_3d(opt, size):
@@ -116,6 +121,8 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         transform_list.append(transforms.Pad(params['padding_vals']))
     elif 'scale_width' in opt.preprocess:
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.load_size, opt.crop_size, method)))
+    elif 'take_center' in opt.preprocess:
+        transform_list.append(transforms.Lambda(lambda img: __crop(img, params['center_pos'], opt.load_size)))
 
     if 'crop' in opt.preprocess:
         if params is None:
@@ -144,7 +151,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
 def get_transform_torchio(opt, params=None, convert=True):
     transform_list = []
 
-    if 'resize' in opt.preprocess or 'pad' in opt.preprocess:
+    if 'resize' in opt.preprocess or 'pad' in opt.preprocess or 'take_center' in opt.preprocess:
         transform_list.append(t_transforms.CropOrPad((opt.load_size, opt.load_size, opt.load_size)))
 
     if 'crop' in opt.preprocess and params is not None:
