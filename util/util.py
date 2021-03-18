@@ -54,7 +54,7 @@ def postprocess_images(visuals, opt, original_shape):
 
     for label, image in np_dict.items():
         # They could potentially have different sizes, but not tested
-        if all(i > j for i, j in zip(image.shape, original_shape)):
+        if all(i >= j for i, j in zip(image.shape, original_shape)):
             np_dict[label] = crop_center(image, original_shape)
     return np_dict
 
