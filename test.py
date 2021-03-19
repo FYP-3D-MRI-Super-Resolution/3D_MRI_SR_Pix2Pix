@@ -30,18 +30,10 @@ if __name__ == '__main__':
     # comment this line if results on randomly chosen images are needed.
     opt.no_flip = True  # no flip; comment this line if results on flipped images are needed.
     opt.display_id = -1  # no visdom display; the test code saves the results to a HTML file.
-
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     # Determine whether we are using nifti images
-    if opt.print_model_info and "pix2pix" in opt.model:
-        from torchsummary import summary
-        if "3d" in opt.model:
-            summary(model.netG, (opt.input_nc, opt.crop_size, opt.crop_size, opt.crop_size))
-        else:
-            summary(model.netG, (opt.input_nc, opt.crop_size, opt.crop_size))
-
     nifti = True if opt.dataset_mode == "nifti" else False
     # create a website
     exc_eval = None
