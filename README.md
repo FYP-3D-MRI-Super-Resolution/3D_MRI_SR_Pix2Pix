@@ -81,23 +81,22 @@ Which will create a model for 3D MRI scans. To use 2D slices instead select `--m
 To select a slice to run the training on, use the parameter `--chosen_slice`. 
 At the moment only transverse slices are supported and the default slice is the middle transverse slice for a scan of size 240x240x155.
 
-The network is a u128 by default, so the images should have side lengths which are multiples of 128. However, if this is not the case,
-random crops will be performed to ensure that the entire structure of the brain is captured.
-
-In case you not have a GPU, please add the option `--gpu_id -1`.
+The network is a `unet_128` by default, so the images should have side lengths which are multiples of 128. 
+However, if this is not the case, random crops will be performed to ensure that the entire structure of the brain is captured.
+In our tests `resnet_6blocks` performed best, and we think they are the best choice for this purpose.
 
 ### Test
 Once the model has been trained, we can retrieve the results for the `test_name` experiment with
 ```
 python test.py --dataroot path/to/data --dataset_mode nifti --model pix2pix3d --name test_name --preprocess resize --excel --postprocess 1 --phase name/to/test
 ```
-If the source images do not have side lengths which are multiples of 128 they can be padded with `--preprocess resize`.
+If the source images do not have side lengths which are multiples of 128 they can be padded with `--preprocess pad`.
 
 The flag `--excel` prints the results of the MSE computation to a csv file. 
 Otherwise, the results are only printed to screen.
 
-`name/to/test` is the name of the folder where the MRI images for testing are located. For example, if the files to test are in `/path/to/data/name/to/test`, then 
-`name/to/test` should be used. The default value is `test`.
+`name/to/test` is the name of the folder where the MRI images for testing are located. For example, if the files to test are in `/path/to/data/name/to/test`, then `name/to/test` should be used. 
+The default value is `test`.
 
 The variable `--postprocess` can be used to postprocess the image:
 * **-1** (default): means no post-processing,
@@ -110,3 +109,46 @@ The options are `median` and `average`, where `median` applies the median filter
 The default filter is `median`.
 
 In case you not have a GPU, please add the option `--gpu_id -1`.
+
+### Docker
+
+The file `base.dockerfile` contains the base structure of our Pix2PixNIfTI image and it can be used both for training and testing.
+Some example dockerfiles that build on top of that image can be found in `scripts`.
+
+Here an example of how to create the base image and some images for training and testing.
+```
+# Fix training dataset
+python3 ./datasets/make_nifti_dataset.py --folder /path/to/data --save_folder /fixed/pix_data --phase train
+# Fix validation dataset
+python3 ./datasets/make_nifti_dataset.py --folder /path/to/data --save_folder /fixed/pix_data --phase validation
+
+# Build Pix2Pix base image
+docker build --force-rm -f base.dockerfile -t pix_base .
+
+# Run Training ResNet
+docker build --force-rm -f ./scripts/train_resnet.dockerfile -t train_resnet . && \
+nvidia-docker run --rm --mount type=bind,source=/fixed/pix_data,target=/input \
+--mount type=bind,source=/location/pix_checkpoints,target=/checkpoints \
+--mount type=bind,source=/location/pix_output,target=/results train_resnet
+
+echo "Finished ResNet Training"
+
+docker build --force-rm -f ./scripts/val_resnet.dockerfile -t val_resnet . && \
+nvidia-docker run --rm --mount type=bind,source=/fixed/pix_data,target=/input \
+--mount type=bind,source=/location/pix_checkpoints,target=/checkpoints \
+--mount type=bind,source=/location/pix_output,target=/results val_resnet
+
+echo "Finished ResNet Validation"
+
+python3 ./datasets/make_nifti_dataset.py --folder path/to/data --save_folder /fixed/pix_data --phase testBraTS
+python3 ./datasets/make_nifti_dataset.py --folder path/to/data --save_folder /fixed/pix_data --phase testUK
+python3 ./datasets/make_nifti_dataset.py --folder path/to/data --save_folder /fixed/pix_data --phase testNoTruth
+
+docker build --force-rm -f ./scripts/test_resnet.dockerfile -t test_resnet . && \
+nvidia-docker run --rm --mount type=bind,source=/fixed/pix_data,target=/input \
+--mount type=bind,source=/location/pix_checkpoints,target=/checkpoints \
+--mount type=bind,source=/location/pix_output,target=/results test_resnet
+
+echo "Finished ResNet Testing"
+docker rmi test_resnet
+``` 
