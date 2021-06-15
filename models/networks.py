@@ -3,11 +3,76 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
+import torch.nn.functional as F
 
 
 ###############################################################################
 # Helper Functions
 ###############################################################################
+
+class ReflectionPad3d(nn.Module):
+    def __init__(self, padding):
+        super(ReflectionPad3d, self).__init__()
+        self.padding = padding
+        if isinstance(padding, int):
+            self.padding = (padding,) * 6
+
+    # Fix from https://github.com/yashasvi-ranawat/pytorch/blob/patch-1/torch/nn/functional.py
+    def forward(self, input):
+        """
+        Arguments
+            :param input: tensor of shape :math:`(N, C_{\text{in}}, H, [W, D]))`
+        Returns
+            :return: tensor of shape :math:`(N, C_{\text{in}}, [D + 2 * self.padding[0],
+                     H + 2 * self.padding[1]], W + 2 * self.padding[2]))`
+        """
+
+        input = torch.cat([input, input.flip([2])[:, :, 0:self.padding[-1]]], dim=2)
+        input = torch.cat([input.flip([2])[:, :, -self.padding[-2]:], input], dim=2)
+
+        if len(self.padding) > 2:
+            input = torch.cat([input, input.flip([3])[:, :, :, 0:self.padding[-3]]], dim=3)
+            input = torch.cat([input.flip([3])[:, :, :, -self.padding[-4]:], input], dim=3)
+
+        if len(self.padding) > 4:
+            input = torch.cat([input, input.flip([4])[:, :, :, :, 0:self.padding[-5]]], dim=4)
+            input = torch.cat([input.flip([4])[:, :, :, :, -self.padding[-6]:], input], dim=4)
+
+        return input
+
+
+class LinearAdditiveUpsample(nn.Module):
+    """Bi/Trilinear Additive Upsample
+
+    Upsampling strategy described in Wojna et al (https://doi.org/10.1007/s11263-019-01170-8) to avoid checkerboard
+    patterns while keeping a better performance for the convolution.
+
+    Parameters:
+        scale_factor (int)  -- the factor for the upsampling operation
+        n_splits (float)    -- the channel reduction factor
+        threed (bool)       -- 3D (true) or 2D (false) network
+
+    """
+
+    def __init__(self, scale_factor, n_splits, threed):
+        super(LinearAdditiveUpsample, self).__init__()
+        self.scale_factor = scale_factor
+        self.n_splits = n_splits
+        if threed:
+            self.mode = 'trilinear'
+        else:
+            self.mode = 'bilinear'
+
+    def forward(self, input_tensor):
+        n_channels = input_tensor.shape[1]
+        assert self.n_splits > 0 and n_channels % self.n_splits == 0, \
+            "Number of feature channels should be divisible by n_splits"
+        resizing_layer = nn.functional.interpolate(input_tensor, scale_factor=self.scale_factor,
+                                                   mode=self.mode, align_corners=False)
+        split = torch.split(resizing_layer, self.n_splits, dim=1)
+        split_tensor = torch.stack(split, dim=1)
+        output_tensor = torch.sum(split_tensor, dim=2)
+        return output_tensor
 
 
 class Identity(nn.Module):
@@ -40,7 +105,7 @@ def get_norm_layer(norm_type='instance', threed=False):
 
     Parameters:
         norm_type (str) -- the name of the normalization layer: batch | instance | none
-        threed (bool)   -- whether the network should be 3d or 2d
+        threed (bool)   -- 3D (true) or 2D (false) network
 
     For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
     For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
@@ -93,9 +158,9 @@ def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
 
     Parameters:
-        net (network)   -- network to be initialized
-        init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
-        init_gain (float)    -- scaling factor for normal, xavier and orthogonal.
+        net (network)       -- network to be initialized
+        init_type (str)     -- the name of an initialization method: normal | xavier | kaiming | orthogonal
+        init_gain (float)   -- scaling factor for normal, xavier and orthogonal.
 
     We use 'normal' in the original pix2pix and CycleGAN paper. But xavier and kaiming might
     work better for some applications. Feel free to try yourself.
@@ -135,28 +200,28 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     Return an initialized network.
     """
     if len(gpu_ids) > 0:
-        assert(torch.cuda.is_available())
+        assert (torch.cuda.is_available())
         net.to(gpu_ids[0])
-        net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
+        # net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
     init_weights(net, init_type, init_gain=init_gain)
     return net
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02,
-             gpu_ids=[], threed=False):
+             gpu_ids=[], upsampling='deconvolution', threed=False):
     """Create a generator
 
     Parameters:
-        input_nc (int) -- the number of channels in input images
-        output_nc (int) -- the number of channels in output images
-        ngf (int) -- the number of filters in the last conv layer
-        netG (str) -- the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
-        norm (str) -- the name of normalization layers used in the network: batch | instance | none
-        use_dropout (bool) -- if use dropout layers.
-        init_type (str)    -- the name of our initialization method.
-        init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-        gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
-        threed (bool)      -- whether the network should be 3d or 2d
+        input_nc (int)      -- the number of channels in input images
+        output_nc (int)     -- the number of channels in output images
+        ngf (int)           -- the number of filters in the last conv layer
+        netG (str)          -- the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
+        norm (str)          -- the name of normalization layers used in the network: batch | instance | none
+        use_dropout (bool)  -- if use dropout layers.
+        init_type (str)     -- the name of our initialization method.
+        init_gain (float)   -- scaling factor for normal, xavier and orthogonal.
+        gpu_ids (int list)  -- which GPUs the network runs on: e.g., 0,1,2
+        threed (bool)       -- 3D (true) or 2D (false) network
 
     Returns a generator
 
@@ -175,13 +240,17 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm, threed=threed)
 
     if netG == 'resnet_9blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                              use_dropout=use_dropout, n_blocks=9)
     elif netG == 'resnet_6blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                              use_dropout=use_dropout, n_blocks=6)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                            use_dropout=use_dropout)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                            use_dropout=use_dropout)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
@@ -192,15 +261,15 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     """Create a discriminator
 
     Parameters:
-        input_nc (int)     -- the number of channels in input images
-        ndf (int)          -- the number of filters in the first conv layer
-        netD (str)         -- the architecture's name: basic | n_layers | pixel
-        n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
-        norm (str)         -- the type of normalization layers used in the network.
-        init_type (str)    -- the name of the initialization method.
-        init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-        gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
-        threed (bool)      -- whether the network should be 3d or 2d
+        input_nc (int)      -- the number of channels in input images
+        ndf (int)           -- the number of filters in the first conv layer
+        netD (str)          -- the architecture's name: basic | n_layers | pixel
+        n_layers_D (int)    -- the number of conv layers in the discriminator; effective when netD=='n_layers'
+        norm (str)          -- the type of normalization layers used in the network.
+        init_type (str)     -- the name of the initialization method.
+        init_gain (float)   -- scaling factor for normal, xavier and orthogonal.
+        gpu_ids (int list)  -- which GPUs the network runs on: e.g., 0,1,2
+        threed (bool)       -- 3D (true) or 2D (false) network
 
     Returns a discriminator
 
@@ -247,9 +316,9 @@ class GANLoss(nn.Module):
         """ Initialize the GANLoss class.
 
         Parameters:
-            gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
-            target_real_label (bool) - - label for a real image
-            target_fake_label (bool) - - label of a fake image
+            gan_mode (str)              -- the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
+            target_real_label (bool)    -- label for a real image
+            target_fake_label (bool)    -- label of a fake image
 
         Note: Do not use sigmoid as the last layer of Discriminator.
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
@@ -271,8 +340,8 @@ class GANLoss(nn.Module):
         """Create label tensors with the same size as the input.
 
         Parameters:
-            prediction (tensor) - - tpyically the prediction from a discriminator
-            target_is_real (bool) - - if the ground truth label is for real images or fake images
+            prediction (tensor)     -- tpyically the prediction from a discriminator
+            target_is_real (bool)   -- if the ground truth label is for real images or fake images
 
         Returns:
             A label tensor filled with ground truth label, and with the size of the input
@@ -288,8 +357,8 @@ class GANLoss(nn.Module):
         """Calculate loss given Discriminator's output and grount truth labels.
 
         Parameters:
-            prediction (tensor) - - tpyically the prediction output from a discriminator
-            target_is_real (bool) - - if the ground truth label is for real images or fake images
+            prediction (tensor)     -- tpyically the prediction output from a discriminator
+            target_is_real (bool)   -- if the ground truth label is for real images or fake images
 
         Returns:
             the calculated loss.
@@ -349,8 +418,8 @@ class ResnetGenerator(nn.Module):
     We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
     """
 
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6,
-                 padding_type='reflect'):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, upsampling='deconvolution',
+                 use_dropout=False, n_blocks=6, padding_type='reflect', n_splits=4):
         """Construct a Resnet-based generator
 
         Parameters:
@@ -370,14 +439,13 @@ class ResnetGenerator(nn.Module):
         if threed:
             conv_layer = nn.Conv3d
             conv_trans_layer = nn.ConvTranspose3d
-            # Reflection doesn't exist for 3d
-            reflection_pad = nn.ReplicationPad3d
+            reflection_pad = ReflectionPad3d(3)
         else:
             conv_layer = nn.Conv2d
             conv_trans_layer = nn.ConvTranspose2d
-            reflection_pad = nn.ReflectionPad2d
+            reflection_pad = nn.ReflectionPad2d(3)
 
-        model = [reflection_pad(3),
+        model = [reflection_pad,
                  conv_layer(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
                  norm_layer(ngf),
                  nn.ReLU(True)]
@@ -397,13 +465,20 @@ class ResnetGenerator(nn.Module):
 
         for i in range(n_downsampling):  # add upsampling layers
             mult = 2 ** (n_downsampling - i)
-            model += [conv_trans_layer(ngf * mult, int(ngf * mult / 2),
-                                       kernel_size=3, stride=2,
-                                       padding=1, output_padding=1,
-                                       bias=use_bias),
-                      norm_layer(int(ngf * mult / 2)),
+            if upsampling == 'deconvolution':
+                model += [conv_trans_layer(ngf * mult, int(ngf * mult / 2),
+                                           kernel_size=3, stride=2,
+                                           padding=1, output_padding=1,
+                                           bias=use_bias)]
+            else:
+                model += [LinearAdditiveUpsample(scale_factor=2, n_splits=n_splits, threed=threed),
+                          conv_layer((ngf * mult) // n_splits, int(ngf * mult / 2),
+                                     kernel_size=3, stride=1,
+                                     padding=1)
+                          ]
+            model += [norm_layer(int(ngf * mult / 2)),
                       nn.ReLU(True)]
-        model += [reflection_pad(3)]
+        model += [reflection_pad]
         model += [conv_layer(ngf, output_nc, kernel_size=7, padding=0)]
         model += [nn.Tanh()]
 
@@ -445,19 +520,19 @@ class ResnetBlock(nn.Module):
 
         if threed:
             conv_layer = nn.Conv3d
-            # Reflection doesn't exist for 3d
-            reflection_pad = replication_pad = nn.ReplicationPad3d
+            replication_pad = nn.ReplicationPad3d(1)
+            reflection_pad = ReflectionPad3d(1)
         else:
             conv_layer = nn.Conv2d
-            reflection_pad = nn.ReflectionPad2d
-            replication_pad = nn.ReplicationPad2d
+            replication_pad = nn.ReplicationPad2d(1)
+            reflection_pad = nn.ReflectionPad2d(1)
 
         conv_block = []
         p = 0
         if padding_type == 'reflect':
-            conv_block += [reflection_pad(1)]
+            conv_block += [reflection_pad]
         elif padding_type == 'replicate':
-            conv_block += [replication_pad(1)]
+            conv_block += [replication_pad]
         elif padding_type == 'zero':
             p = 1
         else:
@@ -469,9 +544,9 @@ class ResnetBlock(nn.Module):
 
         p = 0
         if padding_type == 'reflect':
-            conv_block += [reflection_pad(1)]
+            conv_block += [reflection_pad]
         elif padding_type == 'replicate':
-            conv_block += [replication_pad(1)]
+            conv_block += [replication_pad]
         elif padding_type == 'zero':
             p = 1
         else:
@@ -489,7 +564,8 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, upsampling='deconvolution',
+                 use_dropout=False):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -503,24 +579,105 @@ class UnetGenerator(nn.Module):
         It is a recursive process.
         """
         super(UnetGenerator, self).__init__()
+        if upsampling == 'deconvolution':
+            uskipblock = UnetSkipConnectionBlock
+        else:
+            uskipblock = LinearUpsampleUnetSkipConnectionBlock
         # construct unet structure
-        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
-                                             innermost=True)  # add the innermost layer
+        unet_block = uskipblock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
+                                innermost=True)  # add the innermost layer
         for i in range(num_downs - 5):  # add intermediate layers with ngf * 8 filters
-            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block,
-                                                 norm_layer=norm_layer, use_dropout=use_dropout)
+            unet_block = uskipblock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block,
+                                    norm_layer=norm_layer, use_dropout=use_dropout)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block,
-                                             norm_layer=norm_layer)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block,
-                                             norm_layer=norm_layer)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
-        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True,
-                                             norm_layer=norm_layer)  # add the outermost layer
+        unet_block = uskipblock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block,
+                                norm_layer=norm_layer)
+        unet_block = uskipblock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block,
+                                norm_layer=norm_layer)
+        unet_block = uskipblock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
+        self.model = uskipblock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True,
+                                norm_layer=norm_layer)  # add the outermost layer
 
     def forward(self, input):
         """Standard forward"""
         return self.model(input)
+
+
+class LinearUpsampleUnetSkipConnectionBlock(nn.Module):
+    """Defines the Unet submodule with skip connection.
+        X -------------------identity----------------------
+        |-- downsampling -- |submodule| -- upsampling --|
+    """
+
+    def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None, outermost=False, innermost=False,
+                 norm_layer=nn.BatchNorm2d, use_dropout=False, n_splits=4):
+        """Construct a Unet submodule with skip connections.
+
+        Parameters:
+            outer_nc (int) -- the number of filters in the outer conv layer
+            inner_nc (int) -- the number of filters in the inner conv layer
+            input_nc (int) -- the number of channels in input images/features
+            submodule (UnetSkipConnectionBlock) -- previously defined submodules
+            outermost (bool)    -- if this module is the outermost module
+            innermost (bool)    -- if this module is the innermost module
+            norm_layer          -- normalization layer
+            use_dropout (bool)  -- if use dropout layers
+            n_splits (int)      -- the channel reduction factor
+        """
+        super(LinearUpsampleUnetSkipConnectionBlock, self).__init__()
+        self.outermost = outermost
+        threed = is_threed_layer(norm_layer)
+        use_bias = add_bias(norm_layer, threed)
+
+        if threed:
+            conv_layer = nn.Conv3d
+        else:
+            conv_layer = nn.Conv2d
+
+        upsample = LinearAdditiveUpsample(scale_factor=2, n_splits=n_splits, threed=threed)
+
+        if input_nc is None:
+            input_nc = outer_nc
+        downconv = conv_layer(input_nc, inner_nc, kernel_size=4,
+                              stride=2, padding=1, bias=use_bias)
+        downrelu = nn.LeakyReLU(0.2, True)
+        downnorm = norm_layer(inner_nc)
+        uprelu = nn.ReLU(True)
+        upnorm = norm_layer(outer_nc)
+
+        if outermost:
+            upconv = conv_layer((inner_nc * 2) // n_splits, outer_nc,
+                                kernel_size=3, stride=1,
+                                padding=1)
+            down = [downconv]
+            up = [uprelu, upsample, upconv, nn.Tanh()]
+            model = down + [submodule] + up
+        elif innermost:
+            upconv = conv_layer(inner_nc // n_splits, outer_nc,
+                                kernel_size=3, stride=1,
+                                padding=1)
+            down = [downrelu, downconv]
+            up = [uprelu, upsample, upconv, upnorm]
+            model = down + up
+        else:
+            upconv = conv_layer((inner_nc * 2) // n_splits, outer_nc,
+                                kernel_size=3, stride=1,
+                                padding=1)
+            down = [downrelu, downconv, downnorm]
+            up = [uprelu, upsample, upconv, upnorm]
+
+            if use_dropout:
+                model = down + [submodule] + up + [nn.Dropout(0.5)]
+            else:
+                model = down + [submodule] + up
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, x):
+        if self.outermost:
+            return self.model(x)
+        else:  # add skip connections
+            return torch.cat([x, self.model(x)], 1)
 
 
 class UnetSkipConnectionBlock(nn.Module):
