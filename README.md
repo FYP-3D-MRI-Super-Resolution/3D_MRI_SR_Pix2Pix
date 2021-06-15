@@ -1,10 +1,19 @@
-# CURRENT WIP
-
 # Pix2PixNIfTI
 
 Extension of [Pix2Pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) to run with NIfTI files (2D or 3D).
 Pix2Pix is a general framework for image-to-image translation.
 With our extension this cGAN can learn a mapping between two MRI sequences.
+
+The general framework is still the same, so the that can be found in [Pix2Pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) is still valid.
+However, the code has been extended with the following:
+* We modify the loading functionality to accept 3D NIfTI images.
+* We extend the data augmentation process with an additional library, [TorchIO](https://github.com/fepegar/torchio), which implements useful preprocessing and data augmentation routines for medical imaging.
+* We add the mixed precision training functionality from [NVIDIA APEX](https://github.com/NVIDIA/apex), which can be enabled with `--fp16`.
+* Since a big portion of our scans is background, the L1 loss is only computed on the actual brain voxels.
+* Linear additive upsampling can be used instead of the transpose convolution operation. Select the desidered upsampling with `--upsampling [deconvolution | linear]`.
+* We modify the loss function to consider, additionally to the L1 loss, the MSE loss of the pixels corresponding to the tumor ground truth (if available).
+
+In [Paper To Be Added](www.soontobepublished.com) you can find a description of our approaches and some results.
 
 ## Installation
 The framework is written in python3 and requires some libraries, which can be installed with
@@ -91,9 +100,9 @@ Otherwise, the results are only printed to screen.
 `name/to/test` should be used. The default value is `test`.
 
 The variable `--postprocess` can be used to postprocess the image:
+* **-1** (default): means no post-processing,
 * **0**: scales the image to the [0, 1] range,
 * **1**: standardizes the image to have zero mean and unit variance,
-* **2**: scales the image the [-1, 1] range.
 
 It is also possible to select a filter to apply to the resulting image with `--smoothing`. 
 Both the original and the filtered image will be saved as output.
