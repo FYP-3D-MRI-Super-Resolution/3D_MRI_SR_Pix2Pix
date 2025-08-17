@@ -5,8 +5,6 @@ from models import create_model
 from util.visualizer import Visualizer
 from util.util import print_timestamped
 from data.MRI3DPatchDataset import MRI3DPatchDatasetPaired
-from options.train_options import TrainOptions
-
 
 class Opt:
     def __init__(self):
