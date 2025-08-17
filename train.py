@@ -16,11 +16,12 @@ class Opt:
         self.input_nc = 1
         self.output_nc = 1
         self.ngf = 64
-        self.norm = 'batch'  # batch | instance
+        self.ndf = 64
+        self.norm = 'batch'
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
-        self.upsampling = 'trilinear'  # or 'nearest'
+        self.upsampling = 'trilinear'
 
         # Dataset
         self.dataset_mode = 'custom3d'
@@ -50,12 +51,12 @@ class Opt:
         # Visualization & logging
         self.display_id = -1
         self.print_model_info = False
-        self.display_freq = 500
-        self.update_html_freq = 500
+        self.display_freq = 5
+        self.update_html_freq = 5
         self.print_freq = 100
 
         # Checkpoints / saving
-        self.save_latest_freq = 500
+        self.save_latest_freq = 5
         self.save_by_iter = False
         self.save_epoch_freq = 5
         self.checkpoints_dir = "./checkpoints"
