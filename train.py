@@ -67,6 +67,7 @@ class Opt:
         self.display_env = 'main'
         self.display_port = 8097
         self.no_html = False
+        self.display_winsize = 256
 
         # Checkpoints / saving
         self.save_latest_freq = 500
