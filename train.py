@@ -16,7 +16,7 @@ class Opt:
         self.ngf = 64
         self.netG = 'unet_32'
         self.threed = True
-        self.gpu_ids = [0]            # GPU
+        self.gpu_ids = [0]
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
@@ -35,6 +35,7 @@ class Opt:
         self.crop_size = 32
         self.load_size = 32
         self.preprocess = 'none'
+
         self.isTrain = True
         self.checkpoints_dir = "./checkpoints"
         self.name = "mri_pix2pix3d"
@@ -43,8 +44,7 @@ class Opt:
         self.no_dropout = False
         self.fp16 = False
         self.suffix = ""
-
-
+        self.norm = 'batch'
 
 opt = Opt()
 
