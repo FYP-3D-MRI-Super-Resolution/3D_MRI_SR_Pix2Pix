@@ -12,7 +12,7 @@ from options.train_options import TrainOptions
 opt = TrainOptions().parse()
 
 opt.model = 'pix2pix3d'
-opt.dataset_mode = 'custom3d'
+opt.dataset_mode = 'MRI3DPatchDataset'
 opt.input_nc = 1
 opt.output_nc = 1
 opt.ngf = 64
