@@ -5,37 +5,39 @@ from models import create_model
 from util.visualizer import Visualizer
 from util.util import print_timestamped
 from data.MRI3DPatchDataset import MRI3DPatchDatasetPaired
+from options.train_options import TrainOptions
 
-class Opt:
-    def __init__(self):
-        self.model = 'pix2pix3d'
-        self.dataset_mode = 'custom3d'  # dummy, we'll override dataset
-        self.input_nc = 1
-        self.output_nc = 1
-        self.ngf = 64
-        self.netG = 'unet_32'  # custom 32x32x32 UNet
-        self.threed = True
-        self.gpu_ids = []
-        self.use_dropout = False
-        self.init_type = 'normal'
-        self.init_gain = 0.02
-        self.batch_size = 2
-        self.epoch_count = 1
-        self.n_epochs = 100
-        self.n_epochs_decay = 0
-        self.display_id = -1  # turn off visdom for 3D
-        self.print_model_info = False
-        self.save_latest_freq = 500
-        self.save_by_iter = False
-        self.save_epoch_freq = 5
-        self.display_freq = 500
-        self.print_freq = 100
-        self.update_html_freq = 500
-        self.crop_size = 32
-        self.load_size = 32
-        self.preprocess = 'none'
+from options.train_options import TrainOptions
 
-opt = Opt()
+opt = TrainOptions().parse()
+
+opt.model = 'pix2pix3d'
+opt.dataset_mode = 'custom3d'
+opt.input_nc = 1
+opt.output_nc = 1
+opt.ngf = 64
+opt.netG = 'unet_32'
+opt.threed = True
+opt.gpu_ids = [0]
+opt.use_dropout = False
+opt.init_type = 'normal'
+opt.init_gain = 0.02
+opt.batch_size = 2
+opt.epoch_count = 1
+opt.n_epochs = 100
+opt.n_epochs_decay = 0
+opt.display_id = -1
+opt.print_model_info = False
+opt.save_latest_freq = 500
+opt.save_by_iter = False
+opt.save_epoch_freq = 5
+opt.display_freq = 500
+opt.print_freq = 100
+opt.update_html_freq = 500
+opt.crop_size = 32
+opt.load_size = 32
+opt.preprocess = 'none'
+
 
 low_res_dir = "/kaggle/input/high-res-and-low-res-mri/Refined-MRI-dataset/Low-Res"
 high_res_dir = "/kaggle/input/high-res-and-low-res-mri/Refined-MRI-dataset/High-Res"
