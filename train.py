@@ -13,22 +13,30 @@ class Opt:
         # Model & network
         self.model = 'pix2pix3d'
         self.netG = 'unet_32'
-        self.netD = 'basic'
+        self.netD = 'basic'       # discriminator type: basic | n_layers | pixel
         self.input_nc = 1
         self.output_nc = 1
         self.ngf = 64
         self.ndf = 64
-        self.norm = 'batch'
+        self.n_layers_D = 3        # only used if netD=='n_layers'
+        self.norm = 'instance'     # instance | batch | none
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
-        self.upsampling = 'trilinear'
+        self.no_dropout = False
+        self.upsampling = 'linear' # or 'trilinear'
+        self.fp16 = False
 
         # Dataset
         self.dataset_mode = 'custom3d'
         self.crop_size = 32
         self.load_size = 32
         self.preprocess = 'none'
+        self.direction = 'AtoB'
+        self.serial_batches = False
+        self.num_threads = 4
+        self.max_dataset_size = float("inf")
+        self.no_flip = False
 
         # Training
         self.isTrain = True
@@ -42,22 +50,25 @@ class Opt:
         self.gan_mode = 'lsgan'
         self.lr_policy = 'linear'
         self.lr_decay_iters = 50
-        self.fp16 = False
-        self.no_dropout = False
 
         # GPU / device
-        self.gpu_ids = [0]
+        self.gpu_ids = [0]   # list of GPU ids
         self.threed = True
 
         # Visualization & logging
         self.display_id = -1
         self.print_model_info = False
-        self.display_freq = 5
-        self.update_html_freq = 5
+        self.display_freq = 500
+        self.update_html_freq = 500
         self.print_freq = 100
+        self.display_ncols = 4
+        self.display_server = "http://localhost"
+        self.display_env = 'main'
+        self.display_port = 8097
+        self.no_html = False
 
         # Checkpoints / saving
-        self.save_latest_freq = 5
+        self.save_latest_freq = 500
         self.save_by_iter = False
         self.save_epoch_freq = 5
         self.checkpoints_dir = "./checkpoints"
