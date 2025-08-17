@@ -13,18 +13,18 @@ class Opt:
         # Model & network
         self.model = 'pix2pix3d'
         self.netG = 'unet_32'
-        self.netD = 'basic'       # discriminator type: basic | n_layers | pixel
+        self.netD = 'basic'
         self.input_nc = 1
         self.output_nc = 1
         self.ngf = 64
         self.ndf = 64
-        self.n_layers_D = 3        # only used if netD=='n_layers'
-        self.norm = 'instance'     # instance | batch | none
+        self.n_layers_D = 3
+        self.norm = 'instance'
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
         self.no_dropout = False
-        self.upsampling = 'linear' # or 'trilinear'
+        self.upsampling = 'linear'
         self.fp16 = False
 
         # Dataset
@@ -50,9 +50,10 @@ class Opt:
         self.gan_mode = 'lsgan'
         self.lr_policy = 'linear'
         self.lr_decay_iters = 50
+        self.continue_train = False   # <-- add this
 
         # GPU / device
-        self.gpu_ids = [0]   # list of GPU ids
+        self.gpu_ids = [0]
         self.threed = True
 
         # Visualization & logging
