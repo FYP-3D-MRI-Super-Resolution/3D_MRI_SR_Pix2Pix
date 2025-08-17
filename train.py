@@ -14,8 +14,10 @@ class Opt:
         self.netD = 'basic'
         self.input_nc = 1
         self.output_nc = 1
-        self.ngf = 64
-        self.ndf = 64
+        # Using 64 as base number of filters (must be divisible by n_splits=4)
+        self.ngf = 64  # 64 is divisible by 4
+        self.ndf = 64  # 64 is divisible by 4
+        self.n_splits = 4
         self.n_layers_D = 3
         self.norm = 'instance'
         self.use_dropout = False
@@ -92,6 +94,8 @@ dataset_size = len(dataset)
 print('The number of training images = %d' % dataset_size)
 
 model = create_model(opt)
+# Pass n_splits to the model
+model.netG.n_splits = opt.n_splits
 model.setup(opt)
 
 if opt.print_model_info and "pix2pix" in opt.model:

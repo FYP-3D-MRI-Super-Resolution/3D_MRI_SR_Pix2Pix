@@ -65,13 +65,16 @@ class LinearAdditiveUpsample(nn.Module):
 
     def forward(self, input_tensor):
         n_channels = input_tensor.shape[1]
-        assert self.n_splits > 0 and n_channels % self.n_splits == 0, \
-            "Number of feature channels should be divisible by n_splits"
-        resizing_layer = nn.functional.interpolate(input_tensor, scale_factor=self.scale_factor,
-                                                   mode=self.mode, align_corners=False)
-        split = torch.split(resizing_layer, self.n_splits, dim=1)
+        if n_channels % self.n_splits != 0:
+            pad_size = self.n_splits - (n_channels % self.n_splits)
+            input_tensor = F.pad(input_tensor, (0, 0, 0, 0, 0, pad_size))
+            n_channels = input_tensor.shape[1]
+            
+        resizing_layer = F.interpolate(input_tensor, scale_factor=self.scale_factor,
+                                     mode=self.mode, align_corners=False)
+        split = torch.split(resizing_layer, n_channels // self.n_splits, dim=1)
         split_tensor = torch.stack(split, dim=1)
-        output_tensor = torch.sum(split_tensor, dim=2)
+        output_tensor = torch.sum(split_tensor, dim=1)
         return output_tensor
 
 
