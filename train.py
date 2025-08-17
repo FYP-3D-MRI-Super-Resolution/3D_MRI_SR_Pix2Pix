@@ -13,6 +13,7 @@ class Opt:
         # Model & network
         self.model = 'pix2pix3d'
         self.netG = 'unet_32'
+        self.netD = 'basic'
         self.input_nc = 1
         self.output_nc = 1
         self.ngf = 64
