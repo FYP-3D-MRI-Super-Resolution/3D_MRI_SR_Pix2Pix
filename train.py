@@ -36,6 +36,8 @@ class Opt:
         self.load_size = 32
         self.preprocess = 'none'
         self.isTrain = True
+        self.checkpoints_dir = "./checkpoints"
+        self.name = "mri_pix2pix3d"
 
 
 opt = Opt()
