@@ -55,9 +55,15 @@ class MRI3DPatchDatasetPaired(Dataset):
         subject_idx, local_index = self._find_subject_and_local_index(idx)
         subject = self.subjects[subject_idx]
         sampler = tio.GridSampler(subject, patch_size=self.patch_size, patch_overlap=self.patch_overlap)
+        
         for i, patch in enumerate(sampler):
             if i == local_index:
-                return patch['input'].data, patch['target'].data
+                return {
+                    'A': patch['input'].data,  # low-res input
+                    'B': patch['target'].data,  # high-res target
+                    'A_paths': f'subject_{subject_idx}_patch_{i}',
+                    'B_paths': f'subject_{subject_idx}_patch_{i}'
+                }
         raise IndexError("Index out of range")
 
 
