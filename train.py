@@ -7,44 +7,62 @@ from util.util import print_timestamped
 from data.MRI3DPatchDataset import MRI3DPatchDatasetPaired
 from options.train_options import TrainOptions
 
+
 class Opt:
     def __init__(self):
+        # Model & network
         self.model = 'pix2pix3d'
-        self.dataset_mode = 'custom3d'
+        self.netG = 'unet_32'
         self.input_nc = 1
         self.output_nc = 1
         self.ngf = 64
-        self.netG = 'unet_32'
-        self.threed = True
-        self.gpu_ids = [0]
+        self.norm = 'batch'  # batch | instance
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
-        self.batch_size = 2
-        self.epoch_count = 1
-        self.n_epochs = 100
-        self.n_epochs_decay = 0
-        self.display_id = -1
-        self.print_model_info = False
-        self.save_latest_freq = 500
-        self.save_by_iter = False
-        self.save_epoch_freq = 5
-        self.display_freq = 500
-        self.print_freq = 100
-        self.update_html_freq = 500
+        self.upsampling = 'trilinear'  # or 'nearest'
+
+        # Dataset
+        self.dataset_mode = 'custom3d'
         self.crop_size = 32
         self.load_size = 32
         self.preprocess = 'none'
 
+        # Training
         self.isTrain = True
+        self.batch_size = 2
+        self.epoch_count = 1
+        self.n_epochs = 100
+        self.n_epochs_decay = 0
+        self.lr = 0.0002
+        self.beta1 = 0.5
+        self.pool_size = 50
+        self.gan_mode = 'lsgan'
+        self.lr_policy = 'linear'
+        self.lr_decay_iters = 50
+        self.fp16 = False
+        self.no_dropout = False
+
+        # GPU / device
+        self.gpu_ids = [0]
+        self.threed = True
+
+        # Visualization & logging
+        self.display_id = -1
+        self.print_model_info = False
+        self.display_freq = 500
+        self.update_html_freq = 500
+        self.print_freq = 100
+
+        # Checkpoints / saving
+        self.save_latest_freq = 500
+        self.save_by_iter = False
+        self.save_epoch_freq = 5
         self.checkpoints_dir = "./checkpoints"
         self.name = "mri_pix2pix3d"
         self.phase = "train"
         self.verbose = False
-        self.no_dropout = False
-        self.fp16 = False
         self.suffix = ""
-        self.norm = 'batch'
 
 opt = Opt()
 
