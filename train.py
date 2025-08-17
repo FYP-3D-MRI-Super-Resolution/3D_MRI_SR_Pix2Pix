@@ -16,7 +16,7 @@ class Opt:
         self.ngf = 64
         self.netG = 'unet_32'
         self.threed = True
-        self.gpu_ids = []
+        self.gpu_ids = [0]            # GPU
         self.use_dropout = False
         self.init_type = 'normal'
         self.init_gain = 0.02
@@ -38,6 +38,12 @@ class Opt:
         self.isTrain = True
         self.checkpoints_dir = "./checkpoints"
         self.name = "mri_pix2pix3d"
+        self.phase = "train"
+        self.verbose = False
+        self.no_dropout = False
+        self.fp16 = False
+        self.suffix = ""
+
 
 
 opt = Opt()
