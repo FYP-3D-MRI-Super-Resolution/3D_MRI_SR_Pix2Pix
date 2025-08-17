@@ -245,6 +245,11 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, upsampling=upsampling,
                               use_dropout=use_dropout, n_blocks=6)
+
+    elif netG == 'unet_32':
+        net = UnetGenerator(input_nc, output_nc, 3, ngf, norm_layer=norm_layer, upsampling=upsampling,
+                            use_dropout=use_dropout)
+
     elif netG == 'unet_128':
         net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, upsampling=upsampling,
                             use_dropout=use_dropout)
