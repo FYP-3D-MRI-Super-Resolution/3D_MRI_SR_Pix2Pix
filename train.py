@@ -106,7 +106,6 @@ for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):
 
     model.update_learning_rate()
 
-    # save epoch checkpoints
     if epoch % opt.save_epoch_freq == 0:
         print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
         model.save_networks('latest')
